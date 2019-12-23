@@ -61,7 +61,15 @@ class Generator(nn.Module):
         c = c.view(c.size(0), c.size(1), 1, 1)
         c = c.repeat(1, 1, x.size(2), x.size(3))
         x = torch.cat([x, c], dim=1)
-        return self.main(x)
+
+        feature_maps = []
+
+        # Get intermediate feature maps
+        for layer in self.main:
+            x = layer(x)
+            feature_maps.append(x)
+
+        return x, feature_maps
 
 
 class Discriminator(nn.Module):

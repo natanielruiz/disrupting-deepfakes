@@ -78,7 +78,8 @@ class Solver(object):
         """Create a generator and a discriminator."""
         if self.dataset in ['CelebA', 'RaFD']:
             # self.G = Generator(self.g_conv_dim, self.c_dim, self.g_repeat_num)
-            self.G = AvgBlurGenerator(self.g_conv_dim, self.c_dim, self.g_repeat_num)
+            # self.G = AvgBlurGenerator(self.g_conv_dim, self.c_dim, self.g_repeat_num)
+            self.G = Generator(self.g_conv_dim, self.c_dim, self.g_repeat_num)
             self.D = Discriminator(self.image_size, self.d_conv_dim, self.c_dim, self.d_repeat_num) 
         elif self.dataset in ['Both']:
             self.G = Generator(self.g_conv_dim, self.c_dim+self.c2_dim+2, self.g_repeat_num)   # 2 for mask vector.
@@ -584,6 +585,9 @@ class Solver(object):
         l2_error = 0.0
         perceptual_error = 0.0
         n_samples = 0
+
+        # 11 layers
+        layer_num = 0
         
         for i, (x_real, c_org) in enumerate(data_loader):
             # Black image
@@ -604,20 +608,23 @@ class Solver(object):
 
             for c_trg in c_trg_list:
                 # Attack
-                x_adv, perturb = pgd_attack.perturb(x_real, black, c_trg)
+                layer_num = (layer_num + 1) * 3 - 1
+                x_adv, perturb = pgd_attack.perturb(x_real, black, c_trg, feat=layer_num)
                 # x_adv = x_real + perturb
                 # x_adv = self.blur_tensor(x_adv)
 
                 # Metrics
                 with torch.no_grad():
-                    gen, preproc_x = self.G(x_adv, c_trg)
+                    # gen, preproc_x = self.G(x_adv, c_trg)
+                    gen, gen_feats = self.G(x_adv, c_trg)
 
                     # Add to lists
                     x_fake_list.append(preproc_x)
                     x_fake_list.append(gen)
 
                     # No Attack
-                    gen_noattack, _ = self.G(x_real, c_trg)
+                    # gen_noattack, _ = self.G(x_real, c_trg)
+                    gen_noattack, gen_noattack_feats = self.G(x_real, c_trg)
 
                     l1_error += F.l1_loss(gen, gen_noattack)
                     l2_error += F.mse_loss(gen, gen_noattack)

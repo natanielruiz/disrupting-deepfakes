@@ -7,13 +7,14 @@ import torch
 import torch.nn as nn
 
 class LinfPGDAttack(object):
-    def __init__(self, model=None, device=None, epsilon=0.05, k=1, a=0.05):
+    def __init__(self, model=None, device=None, epsilon=0.05, k=1, a=0.05, feat = None):
         self.model = model
         self.epsilon = epsilon
         self.k = k
         self.a = a
         self.loss_fn = nn.MSELoss().to(device)
         self.device = device
+        self.feat = feat
 
     def perturb(self, X_nat, y, c_trg):
         """
@@ -25,7 +26,12 @@ class LinfPGDAttack(object):
         for i in range(self.k):
             # print(i)
             X.requires_grad = True
-            output, _ = self.model(X, c_trg)
+            output, feats = self.model(X, c_trg)
+
+            if self.feat:
+                output = feats[self.feat]
+                y = np.zeros(output.shape)
+                y = torch.FloatTensor(y).to(self.device)
 
             self.model.zero_grad()
             loss = self.loss_fn(output, y)
@@ -39,7 +45,7 @@ class LinfPGDAttack(object):
 
         self.model.zero_grad()
 
-        return X, (X_nat) - X   # the eta here might be wrong!
+        return X, eta
 
 def clip_tensor(X, Y, Z):
     # Clip X with Y min and Z max
