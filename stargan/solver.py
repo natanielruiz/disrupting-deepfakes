@@ -572,9 +572,9 @@ class Solver(object):
     def test_attack(self):
         """Translate images using StarGAN trained on a single dataset."""
 
-        layer_dict = {0: 2, 1: 5, 2: 8, 3: 9, 4: 10, 5: 11, 6: 12, 7: 13, 8: 14, 9: 17, 10: 20}
+        layer_dict = {0: 2, 1: 5, 2: 8, 3: 9, 4: 10, 5: 11, 6: 12, 7: 13, 8: 14, 9: 17, 10: 20, 11: None}
 
-        # for layer_num_orig in range(11):
+        # for layer_num_orig in range(12):
         # Load the trained generator.
         self.restore_model(self.test_iters)
         
@@ -590,10 +590,10 @@ class Solver(object):
         perceptual_error = 0.0
         n_samples = 0
 
-        # 11 layers
-        # layer_num_orig = 1
+        # 11 layers + output
+        layer_num_orig = 11
 
-        # print('Layer ', layer_num_orig)
+        print('Layer ', layer_num_orig)
         for i, (x_real, c_org) in enumerate(data_loader):
             # Black image
             black = np.zeros((1,3,256,256))
@@ -603,8 +603,7 @@ class Solver(object):
             x_real = x_real.to(self.device)
             c_trg_list = self.create_labels(c_org, self.c_dim, self.dataset, self.selected_attrs)
 
-            # layer_num = layer_dict[layer_num_orig]
-            layer_num = None
+            layer_num = layer_dict[layer_num_orig]
             pgd_attack = attacks.LinfPGDAttack(model=self.G, device=self.device, feat=layer_num)
 
             # Translate images.
@@ -645,9 +644,9 @@ class Solver(object):
             if i == 199:
                 break
         
-            # Print metrics
-            print('{} images. L1 error: {}. L2 error: {}. Perceptual error: {}.'.format(n_samples, l1_error / n_samples, l2_error / n_samples, 
-            perceptual_error / n_samples))
+        # Print metrics
+        print('{} images. L1 error: {}. L2 error: {}. Perceptual error: {}.'.format(n_samples, l1_error / n_samples, l2_error / n_samples, 
+        perceptual_error / n_samples))
 
     def test_multi(self):
         """Translate images using StarGAN trained on multiple datasets."""
