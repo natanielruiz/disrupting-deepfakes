@@ -598,7 +598,8 @@ class Solver(object):
             x_real = x_real.to(self.device)
             c_trg_list = self.create_labels(c_org, self.c_dim, self.dataset, self.selected_attrs)
 
-            pgd_attack = attacks.LinfPGDAttack(model=self.G, device=self.device)
+            layer_num = (layer_num + 1) * 3 - 1
+            pgd_attack = attacks.LinfPGDAttack(model=self.G, device=self.device, feat=layer_num)
 
             # Translate images.
             x_fake_list = [x_real]
@@ -608,8 +609,7 @@ class Solver(object):
 
             for c_trg in c_trg_list:
                 # Attack
-                layer_num = (layer_num + 1) * 3 - 1
-                x_adv, perturb = pgd_attack.perturb(x_real, black, c_trg, feat=layer_num)
+                x_adv, perturb = pgd_attack.perturb(x_real, black, c_trg)
                 # x_adv = x_real + perturb
                 # x_adv = self.blur_tensor(x_adv)
 
