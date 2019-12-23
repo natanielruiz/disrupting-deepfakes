@@ -69,7 +69,7 @@ class Generator(nn.Module):
             print('test')
             x = layer(x)
             feature_maps.append(x)
-        print(feature_maps.shape)
+        print(len(feature_maps))
 
         return x, feature_maps
 

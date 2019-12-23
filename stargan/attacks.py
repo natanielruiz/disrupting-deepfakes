@@ -29,6 +29,7 @@ class LinfPGDAttack(object):
             output, feats = self.model(X, c_trg)
 
             if self.feat:
+                print('self.feat ', self.feat)
                 output = feats[self.feat]
                 y = np.zeros(output.shape)
                 y = torch.FloatTensor(y).to(self.device)
