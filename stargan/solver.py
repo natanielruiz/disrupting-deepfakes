@@ -587,7 +587,7 @@ class Solver(object):
         n_samples = 0
 
         # 11 layers
-        layer_num = 0
+        layer_num_orig = 0
         
         for i, (x_real, c_org) in enumerate(data_loader):
             # Black image
@@ -598,7 +598,7 @@ class Solver(object):
             x_real = x_real.to(self.device)
             c_trg_list = self.create_labels(c_org, self.c_dim, self.dataset, self.selected_attrs)
 
-            layer_num = (layer_num + 1) * 3 - 1
+            layer_num = (layer_num_orig + 1) * 3 - 1
             pgd_attack = attacks.LinfPGDAttack(model=self.G, device=self.device, feat=layer_num)
 
             # Translate images.

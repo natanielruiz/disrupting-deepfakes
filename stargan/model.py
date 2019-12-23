@@ -66,10 +66,10 @@ class Generator(nn.Module):
 
         # Get intermediate feature maps
         for layer in self.main:
-            print('test')
+            # print('test')
             x = layer(x)
             feature_maps.append(x)
-        print(len(feature_maps))
+        # print(len(feature_maps))
 
         return x, feature_maps
 
