@@ -587,7 +587,7 @@ class Solver(object):
         n_samples = 0
 
         # 11 layers
-        layer_num_orig = 0
+        layer_num_orig = 1
         
         for i, (x_real, c_org) in enumerate(data_loader):
             # Black image
