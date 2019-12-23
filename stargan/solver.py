@@ -619,7 +619,7 @@ class Solver(object):
                     gen, gen_feats = self.G(x_adv, c_trg)
 
                     # Add to lists
-                    x_fake_list.append(preproc_x)
+                    # x_fake_list.append(preproc_x)
                     x_fake_list.append(gen)
 
                     # No Attack
