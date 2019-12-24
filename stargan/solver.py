@@ -594,7 +594,7 @@ class Solver(object):
 
         for i, (x_real, c_org) in enumerate(data_loader):
             # Black image
-            black = np.ones((1,3,256,256))
+            black = np.zeros((1,3,256,256))
             black = torch.FloatTensor(black).to(self.device)
 
             # Prepare input images and target domain labels.
