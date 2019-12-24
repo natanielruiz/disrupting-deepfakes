@@ -610,8 +610,10 @@ class Solver(object):
             #     x_adv, perturb = pgd_attack.perturb(x_real, x_real, c_trg_list[0])
 
             for c_trg in c_trg_list:
+                with torch.no_grad():
+                    gen_noattack, gen_noattack_feats = self.G(x_real, c_trg)
                 # Attack
-                x_adv, perturb = pgd_attack.perturb(x_real, black, c_trg)
+                x_adv, perturb = pgd_attack.perturb(x_real, gen_noattack, c_trg)
                 # x_adv = x_real + perturb
                 # x_adv = self.blur_tensor(x_adv)
 
@@ -627,7 +629,7 @@ class Solver(object):
 
                     # No Attack
                     # gen_noattack, _ = self.G(x_real, c_trg)
-                    gen_noattack, gen_noattack_feats = self.G(x_real, c_trg)
+                    # gen_noattack, gen_noattack_feats = self.G(x_real, c_trg)
 
                     l1_error += F.l1_loss(gen, gen_noattack)
                     l2_error += F.mse_loss(gen, gen_noattack)
