@@ -35,7 +35,7 @@ class LinfPGDAttack(object):
                 y = torch.FloatTensor(y).to(self.device)
 
             self.model.zero_grad()
-            loss = -self.loss_fn(output, y)
+            loss = self.loss_fn(output, y)
             loss.backward()
             grad = X.grad
 
