@@ -636,7 +636,7 @@ class Solver(object):
                         l1_error += F.l1_loss(gen, gen_noattack)
                         l2_error += F.mse_loss(gen, gen_noattack)
                         l0_error += (gen - gen_noattack).norm(0)
-                        min_dist += (gen - gen_noattack).norm('-inf')
+                        min_dist += (gen - gen_noattack).norm(float('-inf'))
                         n_samples += 1
 
                 # Save the translated images.
