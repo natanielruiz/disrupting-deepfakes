@@ -627,6 +627,7 @@ class Solver(object):
 
                         # Add to lists
                         # x_fake_list.append(preproc_x)
+                        x_fake_list.append(x_adv)
                         x_fake_list.append(gen)
 
                         # No Attack
