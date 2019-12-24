@@ -635,9 +635,8 @@ class Solver(object):
 
                         l1_error += F.l1_loss(gen, gen_noattack)
                         l2_error += F.mse_loss(gen, gen_noattack)
-                        print((gen - gen_noattack).data[0].cpu(), (gen - gen_noattack).data[0].cpu().shape)
-                        l0_error += np.linalg.norm((gen - gen_noattack).data[0].cpu(), ord=0)
-                        min_dist += attacks.min_dist((gen - gen_noattack).data[0].cpu(), ord='-inf')
+                        l0_error += np.linalg.norm((gen - gen_noattack).data[0].cpu().numpy(), ord=0)
+                        min_dist += attacks.min_dist((gen - gen_noattack).data[0].cpu().numpy(), ord='-inf')
                         n_samples += 1
 
                 # Save the translated images.
