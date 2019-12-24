@@ -597,6 +597,8 @@ class Solver(object):
             black = np.zeros((1,3,256,256))
             black = torch.FloatTensor(black).to(self.device)
 
+            # black = torch.FloatTensor(torch.rand((1,3,256,256))).to(self.device)
+
             # Prepare input images and target domain labels.
             x_real = x_real.to(self.device)
             c_trg_list = self.create_labels(c_org, self.c_dim, self.dataset, self.selected_attrs)
