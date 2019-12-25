@@ -241,7 +241,7 @@ class Pix2PixHDModel(BaseModel):
         else:
             input_concat = input_label  
 
-        input_adv = torch.clamp(input_concat + perturb * 1000, min=-1, max=1)   
+        input_adv = torch.clamp(input_concat + perturb, min=-1, max=1)   
            
         with torch.no_grad():
             fake_image = self.netG.forward(input_adv)
