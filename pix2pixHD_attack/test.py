@@ -8,6 +8,7 @@ import util.util as util
 from util.visualizer import Visualizer
 from util import html
 import torch
+import torch.nn.functional as F
 
 opt = TestOptions().parse(save=False)
 opt.nThreads = 1   # test code only supports nThreads = 1
