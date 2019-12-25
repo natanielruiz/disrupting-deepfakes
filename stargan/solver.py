@@ -727,8 +727,8 @@ class Solver(object):
 
                 # Save the translated images.
                 x_concat = torch.cat(x_fake_list, dim=3)
-                result_path = os.path.join(self.result_dir, '{}-images.jpg'.format(i+1))
-                # result_path = os.path.join(self.result_dir, '{}-{}-images.jpg'.format(layer_num_orig, i+1))
+                # result_path = os.path.join(self.result_dir, '{}-images.jpg'.format(i+1))
+                result_path = os.path.join(self.result_dir, '{}-{}-images.jpg'.format(layer_num_orig, i+1))
                 save_image(self.denorm(x_concat.data.cpu()), result_path, nrow=1, padding=0)
                 # print('Saved real and fake images into {}...'.format(result_path))
                 if i == 3:
