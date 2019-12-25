@@ -36,7 +36,7 @@ else:
     from run_engine import run_trt_engine, run_onnx
 
 # Initialize Metrics
-l1_error, l2_error, min_dist, l0_error = 0.0
+l1_error, l2_error, min_dist, l0_error = 0.0, 0.0, 0.0, 0.0
 n_samples = 0
     
 for i, data in enumerate(dataset):
