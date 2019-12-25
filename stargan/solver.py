@@ -569,7 +569,7 @@ class Solver(object):
                 save_image(self.denorm(x_concat.data.cpu()), result_path, nrow=1, padding=0)
                 print('Saved real and fake images into {}...'.format(result_path))
 
-    def test_attack(self):
+    def test_attack_output(self):
         """Translate images using StarGAN trained on a single dataset."""
 
         layer_dict = {0: 2, 1: 5, 2: 8, 3: 9, 4: 10, 5: 11, 6: 12, 7: 13, 8: 14, 9: 17, 10: 20, 11: None}
@@ -654,7 +654,7 @@ class Solver(object):
         print('{} images. L1 error: {}. L2 error: {}. L0 error: {}. L_-inf error: {}. Perceptual error: {}.'.format(n_samples, 
         l1_error / n_samples, l2_error / n_samples, l0_error / n_samples, min_dist / n_samples, perceptual_error / n_samples))
 
-    def test_attack_feats(self):
+    def test_attack(self):
         """Translate images using StarGAN trained on a single dataset."""
 
         layer_dict = {0: 2, 1: 5, 2: 8, 3: 9, 4: 10, 5: 11, 6: 12, 7: 13, 8: 14, 9: 17, 10: 20, 11: None}
