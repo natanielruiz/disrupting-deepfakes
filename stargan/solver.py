@@ -573,6 +573,7 @@ class Solver(object):
         """Translate images using StarGAN trained on a single dataset."""
 
         layer_dict = {0: 2, 1: 5, 2: 8, 3: 9, 4: 10, 5: 11, 6: 12, 7: 13, 8: 14, 9: 17, 10: 20, 11: None}
+        torch.manual_seed(0)
 
         # for layer_num_orig in range(12):
         # Load the trained generator.
