@@ -401,11 +401,18 @@ class Solver(Utils):
             images_to_animate_path = sorted(glob.glob(
                 self.animation_images_dir + '/*'))
 
+            x_advs = []
+
             for idx, image_path in enumerate(images_to_animate_path):
                 image_to_animate = regular_image_transform(
                     Image.open(image_path)).unsqueeze(0).cuda()
 
                 all_images = torch.cat([regular_image_transform(Image.open(path)).unsqueeze(0) for path in images_to_animate_path], dim=0).cuda()
+
+                if idx == 0:
+                    for target_idx in range(targets.size(0)):
+                        x_adv, perturb = pgd_attack.perturb_iter_class(image_to_animate, black, targets[target_idx, :].cuda())
+                        x_advs.append(x_adv, perturb)
 
                 for target_idx in range(targets.size(0)):
                     # if target_idx == 0:
@@ -415,8 +422,9 @@ class Solver(Utils):
                     #     # _, perturb = pgd_attack.perturb_iter_data(image_to_animate, all_images, black, targets[68, :].unsqueeze(0).cuda())
                         
                     targets_au = targets[target_idx, :].unsqueeze(0).cuda()
-                    x_adv, perturb = pgd_attack.perturb(image_to_animate, black, targets_au)
-                    # x_adv = image_to_animate
+                    # x_adv, perturb = pgd_attack.perturb(image_to_animate, black, targets_au)
+                    x_adv, perturb = x_advs[target_idx]
+                    x_adv = image_to_animate + perturb
                     # print(image_to_animate.shape, x_adv.shape)
                     with torch.no_grad():
                         resulting_images_att, resulting_images_reg = self.G(
