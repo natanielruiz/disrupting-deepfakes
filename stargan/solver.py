@@ -613,7 +613,7 @@ class Solver(object):
             if i == 0:
                 for idx, c_trg in enumerate(c_trg_list):
                     x_adv, perturb = pgd_attack.perturb(x_real, black, c_trg)
-                    x_advs.append(x_adv, perturb)
+                    x_advs.append((x_adv, perturb))
                     break
 
             for idx, c_trg in enumerate(c_trg_list):
