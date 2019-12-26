@@ -94,6 +94,10 @@ class TestModel(BaseModel):
         l2 = F.mse_loss(generated, generated_noattack)
         l0 = (generated - generated_noattack).norm(0)
         d = (generated - generated_noattack).norm(float('-inf'))
+
+        generated = None
+        generated_noattack = None
+        
         return l1, l2, l0, d
 
     def optimize_parameters(self):
