@@ -57,15 +57,15 @@ for i, data in enumerate(dataset):
         exit(0)
     minibatch = 1 
 
-    if i == 0:
-        adv_image, perturb = model.attack(data['label'], data['inst'], data['image'])
+    # if i == 0:
+    #     adv_image, perturb = model.attack(data['label'], data['inst'], data['image'])
     if opt.engine:
         generated = run_trt_engine(opt.engine, minibatch, [data['label'], data['inst']])
     elif opt.onnx:
         generated = run_onnx(opt.onnx, opt.data_type, minibatch, [data['label'], data['inst']])
     else:        
         generated_noattack = model.inference(data['label'], data['inst'], data['image'])
-        # adv_image, perturb = model.attack(data['label'], data['inst'], data['image'])
+        adv_image, perturb = model.attack(data['label'], data['inst'], data['image'])
         generated, adv_img = model.inference_attack(data['label'], data['inst'], data['image'], perturb)
         
     visuals = OrderedDict([('input_label', util.tensor2label(adv_img.data[0], opt.label_nc)),
