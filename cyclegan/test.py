@@ -56,14 +56,34 @@ if __name__ == '__main__':
     # For [CycleGAN]: It should not affect CycleGAN as CycleGAN uses instancenorm without dropout.
     if opt.eval:
         model.eval()
+
+    # Initialize Metrics
+    l1_error, l2_error, min_dist, l0_error, perceptual_error = 0.0, 0.0, 0.0, 0.0, 0.0
+    n_samples = 0
+
     for i, data in enumerate(dataset):
         if i >= opt.num_test:  # only apply our model to opt.num_test images.
             break
         model.set_input(data)  # unpack data from data loader
-        model.test()           # run inference
+        model.forward_noattack()
+        input_adv, perturb = model.attack()
+        with torch.no_grad():
+            model.forward_attack(perturb)
+            model.compute_visuals()
+
+        # Compute metrics
+        l1, l2, l0, d = model.compute_errors()
+        l1_error += l1
+        l2_error += l2
+        l0_error += l0
+        min_dist += d
+        n_samples += 1
+        # model.test()           # run inference
         visuals = model.get_current_visuals()  # get image results
         img_path = model.get_image_paths()     # get image paths
         if i % 5 == 0:  # save images to an HTML file
             print('processing (%04d)-th image... %s' % (i, img_path))
         save_images(webpage, visuals, img_path, aspect_ratio=opt.aspect_ratio, width=opt.display_winsize)
     webpage.save()  # save the HTML
+
+

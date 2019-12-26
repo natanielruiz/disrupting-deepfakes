@@ -64,6 +64,59 @@ class TestModel(BaseModel):
         """Run forward pass."""
         self.fake = self.netG(self.real)  # G(real)
 
+    def forward_noattack(self):
+        """Run forward pass."""
+        self.fake_noattack = self.netG(self.real)  # G(real)
+
+    def attack(self):
+        image = self.real
+        # Attack
+        pgd_attack = attacks.LinfPGDAttack(model=self.netG)
+        black = np.zeros((1, 3, image.size(2), image.size(3)))
+        black = torch.FloatTensor(black).cuda()
+        input_adv, perturb = pgd_attack.perturb(image, black)      
+        
+        return input_adv, perturb
+
+    def forward_attack(self, perturb):
+        self.real = torch.clamp(self.real + perturb, min=-1, max=1)   
+        self.fake = self.netG(self.real)  # G(real)
+
+    def compute_errors(self):
+        generated = self.fake
+        generated_noattack = self.fake_noattack
+        l1 = F.l1_loss(generated, generated_noattack)
+        l2 = F.mse_loss(generated, generated_noattack)
+        l0 = (generated - generated_noattack).norm(0)
+        d = (generated - generated_noattack).norm(float('-inf'))
+        return l1, l2, l0, d
+
+    def attack(self, label, inst, image=None):
+        # Encode Inputs        
+        image = Variable(image) if image is not None else None
+        input_label, inst_map, real_image, _ = self.encode_input(Variable(label), Variable(inst), image, infer=True)
+
+        # Fake Generation
+        if self.use_features:
+            if self.opt.use_encoded_image:
+                # encode the real image to get feature map
+                feat_map = self.netE.forward(real_image, inst_map)
+            else:
+                # sample clusters from precomputed features             
+                feat_map = self.sample_features(inst_map)
+            input_concat = torch.cat((input_label, feat_map), dim=1)                        
+        else:
+            input_concat = input_label  
+
+        # Attack
+        pgd_attack = attacks.LinfPGDAttack(model=self.netG)
+        black = np.zeros((1, 3, input_concat.size(2), input_concat.size(3)))
+        black = torch.FloatTensor(black).cuda()
+        # print(input_concat.size())
+        input_adv, perturb = pgd_attack.perturb(input_concat, black)      
+        
+        return input_adv, perturb
+
     def optimize_parameters(self):
         """No optimization for test model."""
         pass
