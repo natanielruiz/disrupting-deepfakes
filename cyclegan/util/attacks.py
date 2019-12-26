@@ -27,7 +27,7 @@ class LinfPGDAttack(object):
             output = self.model(X)
 
             self.model.zero_grad()
-            loss = -self.loss_fn(output, y)
+            loss = self.loss_fn(output, y)
             loss.backward()
             grad = X.grad
 

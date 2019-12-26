@@ -77,7 +77,7 @@ class TestModel(BaseModel):
         pgd_attack = attacks.LinfPGDAttack(model=self.netG)
         black = np.zeros((1, 3, image.size(2), image.size(3)))
         black = torch.FloatTensor(black).cuda()
-        input_adv, perturb = pgd_attack.perturb(image, black)      
+        input_adv, perturb = pgd_attack.perturb(image, image)      
         
         return input_adv, perturb
 
