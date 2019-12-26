@@ -436,10 +436,10 @@ class Solver(Utils):
                                                                    image_path.split('/')[-1].split('.')[0]
                                                                    + '_ref.jpg'))
 
-                    l1_error += F.l1_loss(resulting_image, gen_noattack)
-                    l2_error += F.mse_loss(resulting_image, gen_noattack)
-                    l0_error += (resulting_image - gen_noattack).norm(0)
-                    min_dist += (resulting_image - gen_noattack).norm(float('-inf'))
+                    l1_error += F.l1_loss(resulting_image, resulting_image_noattack)
+                    l2_error += F.mse_loss(resulting_image, resulting_image_noattack)
+                    l0_error += (resulting_image - resulting_image_noattack).norm(0)
+                    min_dist += (resulting_image - resulting_image_noattack).norm(float('-inf'))
                     n_samples += 1
 
             # Print metrics
