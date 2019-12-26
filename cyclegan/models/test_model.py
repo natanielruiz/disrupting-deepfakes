@@ -1,7 +1,9 @@
 from .base_model import BaseModel
 from . import networks
 from util import attacks
-
+import numpy as np
+import torch
+import torch.nn.functional as F
 
 class TestModel(BaseModel):
     """ This TesteModel can be used to generate CycleGAN results for only one direction.
