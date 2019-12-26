@@ -7,7 +7,7 @@ import torch
 import torch.nn as nn
 
 class LinfPGDAttack(object):
-    def __init__(self, model=None, epsilon=0.05, k=20, a=0.01):
+    def __init__(self, model=None, epsilon=0.15, k=40, a=0.01):
         self.model = model
         self.epsilon = epsilon
         self.k = k
