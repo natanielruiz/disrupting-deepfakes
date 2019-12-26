@@ -609,7 +609,7 @@ class Solver(object):
             # Translate images.
             x_fake_list = [x_real]
 
-            # x_advs = []
+            x_advs = []
             if i == 0:
                 for idx, c_trg in enumerate(c_trg_list):
                     x_adv, perturb = pgd_attack.perturb(x_real, black, c_trg)
