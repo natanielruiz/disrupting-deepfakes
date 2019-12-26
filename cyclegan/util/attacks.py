@@ -35,10 +35,8 @@ class LinfPGDAttack(object):
 
             eta = torch.clamp(X_adv - X_nat, min=-self.epsilon, max=self.epsilon)
             X = torch.clamp(X_nat + eta, min=-1, max=1).detach_()
-            eta = None
-            X_adv = None
 
-        return X, X - X_nat
+        return X, eta
 
 def clip_tensor(X, Y, Z):
     # Clip X with Y min and Z max

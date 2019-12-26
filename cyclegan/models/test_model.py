@@ -78,8 +78,6 @@ class TestModel(BaseModel):
         black = np.zeros((1, 3, image.size(2), image.size(3)))
         black = torch.FloatTensor(black).cuda()
         input_adv, perturb = pgd_attack.perturb(image, black)      
-
-        black = None
         
         return input_adv, perturb
 
@@ -94,9 +92,6 @@ class TestModel(BaseModel):
         l2 = F.mse_loss(generated, generated_noattack)
         l0 = (generated - generated_noattack).norm(0)
         d = (generated - generated_noattack).norm(float('-inf'))
-
-        generated = None
-        generated_noattack = None
         
         return l1, l2, l0, d
 
