@@ -66,7 +66,8 @@ if __name__ == '__main__':
         if i >= opt.num_test:  # only apply our model to opt.num_test images.
             break
         model.set_input(data)  # unpack data from data loader
-        model.forward_noattack()
+        with torch.no_grad():
+            model.forward_noattack()
         input_adv, perturb = model.attack()
         with torch.no_grad():
             model.forward_attack(perturb)
@@ -85,7 +86,7 @@ if __name__ == '__main__':
         if i % 5 == 0:  # save images to an HTML file
             print('processing (%04d)-th image... %s' % (i, img_path))
         save_images(webpage, visuals, img_path, aspect_ratio=opt.aspect_ratio, width=opt.display_winsize)
-        time.sleep(0.5)
+        # time.sleep(0.5)
 
     webpage.save()  # save the HTML
 
