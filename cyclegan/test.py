@@ -58,6 +58,8 @@ if __name__ == '__main__':
     if opt.eval:
         model.eval()
 
+    torch.manual_seed(0)
+
     # Initialize Metrics
     l1_error, l2_error, min_dist, l0_error, perceptual_error = 0.0, 0.0, 0.0, 0.0, 0.0
     n_samples = 0
