@@ -610,8 +610,8 @@ class Solver(object):
             x_fake_list = [x_real]
 
             # x_advs = []
-            if i == 0:
-                x_adv, perturb = pgd_attack.perturb(x_real, black, c_trg_list[0])
+            # if i == 0:
+            #     x_adv, perturb = pgd_attack.perturb(x_real, black, c_trg_list[0])
                 # for idx, c_trg in enumerate(c_trg_list):
                 #     x_adv, perturb = pgd_attack.perturb(x_real, black, c_trg)
                 #     x_advs.append((x_adv, perturb))
@@ -621,7 +621,7 @@ class Solver(object):
                 with torch.no_grad():
                     gen_noattack, gen_noattack_feats = self.G(x_real, c_trg)
                 # Attack
-                # x_adv, perturb = pgd_attack.perturb(x_real, black, c_trg)
+                x_adv, perturb = pgd_attack.perturb(x_real, black, c_trg)
                 # _, perturb = x_advs[idx]
                 # x_adv = x_real + perturb
                 # x_adv = self.blur_tensor(x_adv)
