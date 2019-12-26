@@ -1,5 +1,6 @@
 from .base_model import BaseModel
 from . import networks
+from util import attacks
 
 
 class TestModel(BaseModel):
