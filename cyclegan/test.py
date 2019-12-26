@@ -89,6 +89,8 @@ if __name__ == '__main__':
         model.real = None
         model.fake_noattack = None
         data = None
+        perturb = None
+        input_adv = None
 
     webpage.save()  # save the HTML
 
