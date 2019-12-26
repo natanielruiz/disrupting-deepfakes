@@ -615,8 +615,10 @@ class Solver(object):
                     x_adv, perturb = pgd_attack.perturb(x_real, black, c_trg)
                     x_advs.append((x_adv, perturb))
                     break
-
+            
+            print(len(x_advs))
             for idx, c_trg in enumerate(c_trg_list):
+                print(idx)
                 with torch.no_grad():
                     gen_noattack, gen_noattack_feats = self.G(x_real, c_trg)
                 # Attack
