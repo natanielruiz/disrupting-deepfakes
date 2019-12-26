@@ -609,8 +609,8 @@ class Solver(object):
             # Translate images.
             x_fake_list = [x_real]
 
-            # if i == 0:
-            #     x_adv, perturb = pgd_attack.perturb(x_real, x_real, c_trg_list[0])
+            if i == 0:
+                x_adv, perturb = pgd_attack.perturb(x_real, x_real, c_trg_list[0])
 
             for c_trg in c_trg_list:
                 with torch.no_grad():
@@ -639,6 +639,8 @@ class Solver(object):
                     l0_error += (gen - gen_noattack).norm(0)
                     min_dist += (gen - gen_noattack).norm(float('-inf'))
                     n_samples += 1
+                
+                break
 
             # Save the translated images.
             x_concat = torch.cat(x_fake_list, dim=3)
