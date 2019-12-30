@@ -57,6 +57,7 @@ for i, data in enumerate(dataset):
         exit(0)
     minibatch = 1 
 
+    # Transfer
     # if i == 0:
     #     adv_image, perturb = model.attack(data['label'], data['inst'], data['image'])
     if opt.engine:
