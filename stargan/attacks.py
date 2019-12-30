@@ -46,7 +46,7 @@ class LinfPGDAttack(object):
 
         self.model.zero_grad()
 
-        return X, eta
+        return X, X - X_nat
 
 def clip_tensor(X, Y, Z):
     # Clip X with Y min and Z max
