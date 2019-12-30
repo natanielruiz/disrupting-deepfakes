@@ -84,7 +84,8 @@ for i, data in enumerate(dataset):
     min_dist += (generated - generated_noattack).norm(float('-inf'))
     n_samples += 1
 
-    generated, genereated_noattack, adv_image = None, None, None
+    # generated, genereated_noattack, adv_image = None, None, None
+    generated, genereated_noattack, adv_image, perturb = None, None, None, None
 
 # Print metrics
 print('{} images. L1 error: {}. L2 error: {}. L0 error: {}. L_-inf error: {}. Perceptual error: {}.'.format(n_samples, 
