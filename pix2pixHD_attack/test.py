@@ -69,7 +69,8 @@ for i, data in enumerate(dataset):
         adv_image, perturb = model.attack(data['label'], data['inst'], data['image'])
         generated, adv_img = model.inference_attack(data['label'], data['inst'], data['image'], perturb)
         
-    visuals = OrderedDict([('input_label', util.tensor2label(adv_img.data[0], opt.label_nc)),
+    visuals = OrderedDict([('original_label', util.tensor2label(data['label'], opt.label_nc)),
+                           ('input_label', util.tensor2label(adv_img.data[0], opt.label_nc)),
                            ('attacked_image', util.tensor2im(generated.data[0])),
                            ('noattack', util.tensor2im(generated_noattack.data[0]))])
     img_path = data['path']
