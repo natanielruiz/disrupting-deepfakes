@@ -24,7 +24,7 @@ class LinfPGDAttack(object):
         X = X_nat.clone().detach_()
 
         for i in range(self.k):
-            print(i)
+            # print(i)
             X.requires_grad = True
             output, feats = self.model(X, c_trg)
 
