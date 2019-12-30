@@ -594,7 +594,6 @@ class Solver(object):
         n_samples = 0
 
         for i, (x_real, c_org) in enumerate(data_loader):
-            self.restore_model(self.test_iters)
             # Black image
             black = np.zeros((1,3,256,256))
             black = torch.FloatTensor(black).to(self.device)
@@ -636,6 +635,7 @@ class Solver(object):
                     # Add to lists
                     # x_fake_list.append(preproc_x)
                     x_fake_list.append(x_adv)
+                    x_fake_list.append(perturb)
                     x_fake_list.append(gen)
 
                     # No Attack
