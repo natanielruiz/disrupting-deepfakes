@@ -623,7 +623,7 @@ class Solver(object):
                 # Attack
                 # x_adv, perturb = pgd_attack.perturb(x_real, black, c_trg)
                 # _, perturb = x_advs[idx]
-                # x_adv = x_real + perturb
+                x_adv = x_real + perturb
                 # x_adv = self.blur_tensor(x_adv)
 
                 # Metrics
