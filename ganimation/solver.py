@@ -423,7 +423,7 @@ class Solver(Utils):
                         
                     targets_au = targets[target_idx, :].unsqueeze(0).cuda()
                     # x_adv, perturb = pgd_attack.perturb(image_to_animate, black, targets_au)
-                    x_adv, perturb = x_advs[target_idx]
+                    # x_adv, perturb = x_advs[target_idx]
                     # x_adv = image_to_animate + perturb
                     x_adv = image_to_animate
                     # print(image_to_animate.shape, x_adv.shape)
