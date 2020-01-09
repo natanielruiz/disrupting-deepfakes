@@ -123,6 +123,8 @@ class LinfPGDAttack(object):
 
         for i in range(self.k):
             X.requires_grad = True
+            self.model.zero_grad()
+
             for j in range(J):
                 print(i, j)
                 output_att, output_img = self.model(X, c_trg[j,:].unsqueeze(0))
@@ -133,7 +135,6 @@ class LinfPGDAttack(object):
                 loss = -self.loss_fn(out, y)
                 full_loss += loss
 
-            self.model.zero_grad()
             full_loss.backward()
             grad = X.grad
 
