@@ -436,9 +436,9 @@ class Solver(Utils):
                     # Normal Attack
                     # x_adv, perturb = pgd_attack.perturb(image_to_animate, black, targets_au)
 
-                    x_adv, perturb = x_advs[target_idx]
+                    # x_adv, perturb = x_advs[target_idx]
 
-                    # x_adv = image_to_animate + perturb
+                    x_adv = image_to_animate + perturb
 
                     # No Attack
                     # x_adv = image_to_animate
