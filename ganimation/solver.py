@@ -404,29 +404,47 @@ class Solver(Utils):
             x_advs = []
 
             for idx, image_path in enumerate(images_to_animate_path):
-                image_to_animate = regular_image_transform(
-                    Image.open(image_path)).unsqueeze(0).cuda()
+                image_to_animate = regular_image_transform(Image.open(image_path)).unsqueeze(0).cuda()
 
                 all_images = torch.cat([regular_image_transform(Image.open(path)).unsqueeze(0) for path in images_to_animate_path], dim=0).cuda()
 
-                if idx == 0:
-                    for target_idx in range(targets.size(0)):
-                        x_adv, perturb = pgd_attack.perturb(image_to_animate, black, targets[target_idx, :].unsqueeze(0).cuda())
-                        x_advs.append((x_adv, perturb))
+                # Transfer to different images
+                # if idx == 0:
+                #     for target_idx in range(targets.size(0)):
+                #         x_adv, perturb = pgd_attack.perturb(image_to_animate, black, targets[target_idx, :].unsqueeze(0).cuda())
+                #         x_advs.append((x_adv, perturb))
 
                 for target_idx in range(targets.size(0)):
-                    # if target_idx == 0:
-                    #     img = regular_image_transform(Image.open(images_to_animate_path[idx])).unsqueeze(0).cuda()
-                    #     # x_adv, perturb = pgd_attack.perturb(img, black, targets[0, :].unsqueeze(0).cuda())
-                    #     x_adv, perturb = pgd_attack.perturb_iter_class(image_to_animate, black, targets[:, :].cuda())
-                    #     # _, perturb = pgd_attack.perturb_iter_data(image_to_animate, all_images, black, targets[68, :].unsqueeze(0).cuda())
+                    # Transfer to different classes
+                    if target_idx == 0:
+                        # img = regular_image_transform(Image.open(images_to_animate_path[idx])).unsqueeze(0).cuda()
+
+                        # Wrong Class
+                        x_adv, perturb = pgd_attack.perturb(image_to_animate, black, targets[0, :].unsqueeze(0).cuda()
+
+                        # Joint Class Conditional
+                        # x_adv, perturb = pgd_attack.perturb_joint_class(image_to_animate, black, targets[:, :].cuda())
+
+                        # Iterative Class Conditional
+                        # x_adv, perturb = pgd_attack.perturb_iter_class(image_to_animate, black, targets[:, :].cuda())
+                        
+                        # Iterative Data
+                        # _, perturb = pgd_attack.perturb_iter_data(image_to_animate, all_images, black, targets[68, :].unsqueeze(0).cuda())
                         
                     targets_au = targets[target_idx, :].unsqueeze(0).cuda()
+
+                    # Normal Attack
                     # x_adv, perturb = pgd_attack.perturb(image_to_animate, black, targets_au)
-                    x_adv, perturb = x_advs[target_idx]
-                    # x_adv = image_to_animate + perturb
-                    x_adv = image_to_animate
+
+                    # x_adv, perturb = x_advs[target_idx]
+
+                    x_adv = image_to_animate + perturb
+
+                    # No Attack
+                    # x_adv = image_to_animate
+
                     # print(image_to_animate.shape, x_adv.shape)
+
                     with torch.no_grad():
                         resulting_images_att, resulting_images_reg = self.G(
                             x_adv, targets_au)

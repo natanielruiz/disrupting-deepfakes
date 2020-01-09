@@ -80,8 +80,7 @@ class LinfPGDAttack(object):
 
     def perturb_iter_class(self, X_nat, y, c_trg):
         """
-        Given examples (X_nat, y), returns adversarial
-        examples within epsilon of X_nat in l_infinity norm.
+        Iterative Class Conditional Attack
         """
         X = X_nat.clone().detach_()
 
@@ -110,6 +109,38 @@ class LinfPGDAttack(object):
             j += 1
             if j == J:
                 j = 0
+
+        return X, eta
+
+    def perturb_joint_class(self, X_nat, y, c_trg):
+        """
+        Joint Class Conditional Attack
+        """
+        X = X_nat.clone().detach_()
+
+        J = c_trg.size(0)
+        full_loss = 0.0
+
+        for i in range(self.k):
+            for j in range(J):
+                # print(i)
+                X.requires_grad = True
+                output_att, output_img = self.model(X, c_trg[j,:].unsqueeze(0))
+
+                out = imFromAttReg(output_att, output_img, X)
+
+                self.model.zero_grad()
+
+                loss = -self.loss_fn(output_att, y)
+                full_loss += loss
+
+            full_loss.backward()
+            grad = X.grad
+
+            X_adv = X + self.a * grad.sign()
+
+            eta = torch.clamp(X_adv - X_nat, min=-self.epsilon, max=self.epsilon)
+            X = torch.clamp(X_nat + eta, min=-1, max=1).detach_()
 
         return X, eta
 
