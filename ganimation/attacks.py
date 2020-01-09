@@ -126,7 +126,7 @@ class LinfPGDAttack(object):
             self.model.zero_grad()
 
             for j in range(J):
-                print(i, j)
+                # print(i, j)
                 output_att, output_img = self.model(X, c_trg[j,:].unsqueeze(0))
 
                 out = imFromAttReg(output_att, output_img, X)
