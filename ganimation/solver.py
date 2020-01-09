@@ -416,7 +416,7 @@ class Solver(Utils):
 
                 for target_idx in range(targets.size(0)):
                     # Transfer to different classes
-                    # if target_idx == 0:
+                    if target_idx == 0:
                         # img = regular_image_transform(Image.open(images_to_animate_path[idx])).unsqueeze(0).cuda()
 
                         # Wrong Class
