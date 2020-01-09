@@ -119,9 +119,9 @@ class LinfPGDAttack(object):
         X = X_nat.clone().detach_()
 
         J = c_trg.size(0)
-        full_loss = 0.0
-
+        
         for i in range(self.k):
+            full_loss = 0.0
             X.requires_grad = True
             self.model.zero_grad()
 
