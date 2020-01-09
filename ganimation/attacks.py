@@ -129,12 +129,11 @@ class LinfPGDAttack(object):
 
                 out = imFromAttReg(output_att, output_img, X)
 
-                self.model.zero_grad()
-
                 # loss = -self.loss_fn(output_att, y)
                 loss = -self.loss_fn(out, y)
                 full_loss += loss
 
+            self.model.zero_grad()
             full_loss.backward()
             grad = X.grad
 
