@@ -423,10 +423,10 @@ class Solver(Utils):
                         # x_adv, perturb = pgd_attack.perturb(image_to_animate, black, targets[0, :].unsqueeze(0).cuda())
 
                         # Joint Class Conditional
-                        # x_adv, perturb = pgd_attack.perturb_joint_class(image_to_animate, black, targets[:, :].cuda())
+                        x_adv, perturb = pgd_attack.perturb_joint_class(image_to_animate, black, targets[:, :].cuda())
 
                         # Iterative Class Conditional
-                        x_adv, perturb = pgd_attack.perturb_iter_class(image_to_animate, black, targets[:, :].cuda())
+                        # x_adv, perturb = pgd_attack.perturb_iter_class(image_to_animate, black, targets[:, :].cuda())
                         
                         # Iterative Data
                         # _, perturb = pgd_attack.perturb_iter_data(image_to_animate, all_images, black, targets[68, :].unsqueeze(0).cuda())
