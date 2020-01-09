@@ -416,7 +416,7 @@ class Solver(Utils):
 
                 for target_idx in range(targets.size(0)):
                     # Transfer to different classes
-                    # if target_idx == 0:
+                    if target_idx == 0:
                         # img = regular_image_transform(Image.open(images_to_animate_path[idx])).unsqueeze(0).cuda()
 
                         # Wrong Class
@@ -426,7 +426,7 @@ class Solver(Utils):
                         # x_adv, perturb = pgd_attack.perturb_joint_class(image_to_animate, black, targets[:, :].cuda())
 
                         # Iterative Class Conditional
-                        # x_adv, perturb = pgd_attack.perturb_iter_class(image_to_animate, black, targets[:, :].cuda())
+                        x_adv, perturb = pgd_attack.perturb_iter_class(image_to_animate, black, targets[:, :].cuda())
                         
                         # Iterative Data
                         # _, perturb = pgd_attack.perturb_iter_data(image_to_animate, all_images, black, targets[68, :].unsqueeze(0).cuda())
@@ -434,11 +434,11 @@ class Solver(Utils):
                     targets_au = targets[target_idx, :].unsqueeze(0).cuda()
 
                     # Normal Attack
-                    x_adv, perturb = pgd_attack.perturb(image_to_animate, black, targets_au)
+                    # x_adv, perturb = pgd_attack.perturb(image_to_animate, black, targets_au)
 
                     # x_adv, perturb = x_advs[target_idx]
 
-                    # x_adv = image_to_animate + perturb
+                    x_adv = image_to_animate + perturb
 
                     # No Attack
                     # x_adv = image_to_animate
