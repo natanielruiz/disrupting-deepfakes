@@ -122,9 +122,9 @@ class LinfPGDAttack(object):
         full_loss = 0.0
 
         for i in range(self.k):
+            X.requires_grad = True
             for j in range(J):
-                # print(i)
-                X.requires_grad = True
+                print(i, j)
                 output_att, output_img = self.model(X, c_trg[j,:].unsqueeze(0))
 
                 out = imFromAttReg(output_att, output_img, X)
