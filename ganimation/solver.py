@@ -451,11 +451,11 @@ class Solver(Utils):
                         resulting_image = self.imFromAttReg(
                             resulting_images_att, resulting_images_reg, x_adv).cuda()
 
-                    with torch.no_grad():
-                        resulting_images_att_noattack, resulting_images_reg_noattack = self.G(
-                            image_to_animate, targets_au)
-                        resulting_image_noattack = self.imFromAttReg(
-                            resulting_images_att_noattack, resulting_images_reg_noattack, image_to_animate).cuda()
+                    # with torch.no_grad():
+                    #     resulting_images_att_noattack, resulting_images_reg_noattack = self.G(
+                    #         image_to_animate, targets_au)
+                    #     resulting_image_noattack = self.imFromAttReg(
+                    #         resulting_images_att_noattack, resulting_images_reg_noattack, image_to_animate).cuda()
 
                     save_image((resulting_image+1)/2, os.path.join(self.animation_results_dir,
                                                                    image_path.split('/')[-1].split('.')[0]
@@ -465,16 +465,16 @@ class Solver(Utils):
                                                                    image_path.split('/')[-1].split('.')[0]
                                                                    + '_ref.jpg'))
 
-                    l1_error += F.l1_loss(resulting_image, resulting_image_noattack)
-                    l2_error += F.mse_loss(resulting_image, resulting_image_noattack)
-                    l0_error += (resulting_image - resulting_image_noattack).norm(0)
-                    min_dist += (resulting_image - resulting_image_noattack).norm(float('-inf'))
+                    # l1_error += F.l1_loss(resulting_image, resulting_image_noattack)
+                    # l2_error += F.mse_loss(resulting_image, resulting_image_noattack)
+                    # l0_error += (resulting_image - resulting_image_noattack).norm(0)
+                    # min_dist += (resulting_image - resulting_image_noattack).norm(float('-inf'))
 
                     # Compare to input image
-                    # l1_error += F.l1_loss(resulting_image, image_to_animate)
-                    # l2_error += F.mse_loss(resulting_image, image_to_animate)
-                    # l0_error += (resulting_image - image_to_animate).norm(0)
-                    # min_dist += (resulting_image - image_to_animate).norm(float('-inf'))
+                    l1_error += F.l1_loss(resulting_image, image_to_animate)
+                    l2_error += F.mse_loss(resulting_image, image_to_animate)
+                    l0_error += (resulting_image - image_to_animate).norm(0)
+                    min_dist += (resulting_image - image_to_animate).norm(float('-inf'))
 
                     n_samples += 1
 
