@@ -77,8 +77,8 @@ class Solver(object):
     def build_model(self):
         """Create a generator and a discriminator."""
         if self.dataset in ['CelebA', 'RaFD']:
-            self.G = Generator(self.g_conv_dim, self.c_dim, self.g_repeat_num)
-            # self.G = AvgBlurGenerator(self.g_conv_dim, self.c_dim, self.g_repeat_num)
+            # self.G = Generator(self.g_conv_dim, self.c_dim, self.g_repeat_num)
+            self.G = AvgBlurGenerator(self.g_conv_dim, self.c_dim, self.g_repeat_num)
             self.D = Discriminator(self.image_size, self.d_conv_dim, self.c_dim, self.d_repeat_num) 
         elif self.dataset in ['Both']:
             self.G = Generator(self.g_conv_dim, self.c_dim+self.c2_dim+2, self.g_repeat_num)   # 2 for mask vector.
