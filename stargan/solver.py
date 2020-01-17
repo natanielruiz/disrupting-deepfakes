@@ -78,8 +78,7 @@ class Solver(object):
         """Create a generator and a discriminator."""
         if self.dataset in ['CelebA', 'RaFD']:
             # self.G = Generator(self.g_conv_dim, self.c_dim, self.g_repeat_num)
-            # self.G = AvgBlurGenerator(self.g_conv_dim, self.c_dim, self.g_repeat_num)
-            self.G = Generator(self.g_conv_dim, self.c_dim, self.g_repeat_num)
+            self.G = AvgBlurGenerator(self.g_conv_dim, self.c_dim, self.g_repeat_num)
             self.D = Discriminator(self.image_size, self.d_conv_dim, self.c_dim, self.d_repeat_num) 
         elif self.dataset in ['Both']:
             self.G = Generator(self.g_conv_dim, self.c_dim+self.c2_dim+2, self.g_repeat_num)   # 2 for mask vector.
@@ -625,17 +624,19 @@ class Solver(object):
                 # _, perturb = x_advs[idx]
                 # x_adv = x_real + perturb
                 # x_adv = torch.clamp(x_real + perturb, min=-1, max=1)
+
+                # TODO: Blurring here.
                 # x_adv = self.blur_tensor(x_adv)
 
                 # Metrics
                 with torch.no_grad():
-                    # gen, preproc_x = self.G(x_adv, c_trg)
-                    gen, gen_feats = self.G(x_adv, c_trg)
+                    gen, preproc_x = self.G(x_adv, c_trg)
+                    # gen, gen_feats = self.G(x_adv, c_trg)
 
                     # Add to lists
-                    # x_fake_list.append(preproc_x)
-                    x_fake_list.append(x_adv)
-                    x_fake_list.append(perturb)
+                    x_fake_list.append(preproc_x)
+                    # x_fake_list.append(x_adv)
+                    # x_fake_list.append(perturb)
                     x_fake_list.append(gen)
 
                     # No Attack
@@ -785,7 +786,7 @@ class Solver(object):
         # PIL to numpy
         img = self.denorm(tensor[0].data.cpu())
         img = transforms.ToPILImage()(img)
-        img = img.filter(ImageFilter.GaussianBlur(radius=1.3))    
+        img = img.filter(ImageFilter.GaussianBlur(radius=2))    
         # img = img.filter(ImageFilter.BoxBlur(radius=1))
         img = transforms.ToTensor()(img)
         img = transforms.Normalize(mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5))(img)
