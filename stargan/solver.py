@@ -626,7 +626,7 @@ class Solver(object):
                 # x_adv = torch.clamp(x_real + perturb, min=-1, max=1)
 
                 # TODO: Blurring here.
-                # x_adv = self.blur_tensor(x_adv)
+                x_adv = self.blur_tensor(x_adv)
 
                 # Metrics
                 with torch.no_grad():
