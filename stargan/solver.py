@@ -659,7 +659,7 @@ class Solver(object):
             # print('Saved real and fake images into {}...'.format(result_path))
             # if i == 3:
             #     break
-            if i == 199:
+            if i == 49:
                 break
         
         # Print metrics
