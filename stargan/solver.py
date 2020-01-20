@@ -14,6 +14,7 @@ from PIL import ImageFilter
 from PIL import Image
 from torchvision import transforms
 
+import defenses.smoothing as smoothing
 
 class Solver(object):
     """Solver for training and testing StarGAN."""
@@ -77,8 +78,8 @@ class Solver(object):
     def build_model(self):
         """Create a generator and a discriminator."""
         if self.dataset in ['CelebA', 'RaFD']:
-            # self.G = Generator(self.g_conv_dim, self.c_dim, self.g_repeat_num)
-            self.G = AvgBlurGenerator(self.g_conv_dim, self.c_dim, self.g_repeat_num)
+            self.G = Generator(self.g_conv_dim, self.c_dim, self.g_repeat_num)
+            # self.G = AvgBlurGenerator(self.g_conv_dim, self.c_dim, self.g_repeat_num)
             self.D = Discriminator(self.image_size, self.d_conv_dim, self.c_dim, self.d_repeat_num) 
         elif self.dataset in ['Both']:
             self.G = Generator(self.g_conv_dim, self.c_dim+self.c2_dim+2, self.g_repeat_num)   # 2 for mask vector.
@@ -622,9 +623,13 @@ class Solver(object):
                     x_real_mod = self.blur_tensor(x_real_mod)
                     gen_noattack, gen_noattack_feats = self.G(x_real_mod, c_trg)
                 # Attack
-                x_adv, perturb = pgd_attack.perturb(x_real, black, c_trg)
+                # x_adv, perturb = pgd_attack.perturb(x_real, black, c_trg)
+                # x_adv, perturb, blurred_image = pgd_attack.perturb_blur(x_real, black, c_trg)
+                x_adv, perturb = pgd_attack.perturb_blur_iter(x_real, black, c_trg)
                 # _, perturb = x_advs[idx]
-                # x_adv = x_real + perturb
+
+                # This next line is key for blur defense
+                x_adv = x_real + perturb
                 # x_adv = torch.clamp(x_real + perturb, min=-1, max=1)
 
                 # TODO: Blurring here.
@@ -637,6 +642,7 @@ class Solver(object):
 
                     # Add to lists
                     # x_fake_list.append(preproc_x)
+                    # x_fake_list.append(blurred_image)
                     x_fake_list.append(x_adv)
                     # x_fake_list.append(perturb)
                     x_fake_list.append(gen)
@@ -784,13 +790,18 @@ class Solver(object):
                 save_image(self.denorm(x_concat.data.cpu()), result_path, nrow=1, padding=0)
                 print('Saved real and fake images into {}...'.format(result_path))
 
+    # def blur_tensor(self, tensor):
+    #     # PIL to numpy
+    #     img = self.denorm(tensor[0].data.cpu())
+    #     img = transforms.ToPILImage()(img)
+    #     img = img.filter(ImageFilter.GaussianBlur(radius=1.5))    
+    #     # img = img.filter(ImageFilter.BoxBlur(radius=2))
+    #     img = transforms.ToTensor()(img)
+    #     img = transforms.Normalize(mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5))(img)
+    #     img = torch.unsqueeze(img, 0).to(self.device)
+    #     return img
+
     def blur_tensor(self, tensor):
-        # PIL to numpy
-        img = self.denorm(tensor[0].data.cpu())
-        img = transforms.ToPILImage()(img)
-        img = img.filter(ImageFilter.GaussianBlur(radius=2))    
-        # img = img.filter(ImageFilter.BoxBlur(radius=1))
-        img = transforms.ToTensor()(img)
-        img = transforms.Normalize(mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5))(img)
-        img = torch.unsqueeze(img, 0).to(self.device)
-        return img
+        # preproc = smoothing.AverageSmoothing2D(channels=3, kernel_size=5).to(self.device)
+        preproc = smoothing.GaussianSmoothing2D(sigma=2, channels=3, kernel_size=11).to(self.device)
+        return preproc(tensor)

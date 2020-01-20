@@ -73,6 +73,19 @@ class Generator(nn.Module):
 
         return x, feature_maps
 
+    def forward_blur(self, x, c, blur_layer):
+        c = c.view(c.size(0), c.size(1), 1, 1)
+        c = c.repeat(1, 1, x.size(2), x.size(3))
+        x = blur_layer(x)
+        x = torch.cat([x, c], dim=1)
+
+        feature_maps = []
+        # Get intermediate feature maps
+        for layer in self.main:
+            x = layer(x)
+            feature_maps.append(x)
+
+        return x, feature_maps
 
 class Discriminator(nn.Module):
     """Discriminator network with PatchGAN."""
@@ -134,7 +147,7 @@ class AvgBlurGenerator(nn.Module):
 
         layers_preproc = []
         # layers_preproc.append(nn.ReflectionPad2d(2))
-        layers_preproc.append(smoothing.AverageSmoothing2D(channels=3+c_dim, kernel_size=5))
+        layers_preproc.append(smoothing.AverageSmoothing2D(channels=3+c_dim, kernel_size=21))
         self.preprocessing = nn.Sequential(*layers_preproc)
 
     def forward(self, x, c):
