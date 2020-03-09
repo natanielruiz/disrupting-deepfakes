@@ -7,7 +7,13 @@ import torch
 import torch.nn as nn
 
 class LinfPGDAttack(object):
-    def __init__(self, model=None, device=None, epsilon=0.03, k=80, a=0.01):
+    def __init__(self, model=None, device=None, epsilon=0.05, k=10, a=0.01):
+        """
+        FGSM, I-FGSM and PGD attacks
+        epsilon: magnitude of attack
+        k: iterations
+        a: step size
+        """
         self.model = model
         self.epsilon = epsilon
         self.k = k
@@ -15,23 +21,34 @@ class LinfPGDAttack(object):
         self.loss_fn = nn.MSELoss().to(device)
         self.device = device
 
+        # PGD or I-FGSM?
+        self.rand = True
+
     def perturb(self, X_nat, y, c_trg):
         """
-        Given examples (X_nat, y), returns adversarial
-        examples within epsilon of X_nat in l_infinity norm.
+        Vanilla Attack.
         """
-        X = X_nat.clone().detach_()
+        if self.rand:
+            X = X_nat.clone().detach_() + torch.tensor(np.random.uniform(-self.epsilon, self.epsilon, X_nat.shape).astype('float32')).to(self.device)
+        else:
+            X = X_nat.clone().detach_()
+            # use the following if FGSM or I-FGSM and random seeds are fixed
+            # X = X_nat.clone().detach_() + torch.tensor(np.random.uniform(-0.001, 0.001, X_nat.shape).astype('float32')).cuda()    
 
         for i in range(self.k):
-            # print(i)
             X.requires_grad = True
             output_att, output_img = self.model(X, c_trg)
 
             out = imFromAttReg(output_att, output_img, X)
 
             self.model.zero_grad()
-            loss = self.loss_fn(output_att, y)
-            # loss = -self.loss_fn(out, y)
+
+            # Attention attack
+            # loss = self.loss_fn(output_att, y)
+
+            # Output attack
+            # Minus in the loss means "towards" and plus means "away from"
+            loss = self.loss_fn(out, y)
             loss.backward()
             grad = X.grad
 
@@ -40,41 +57,8 @@ class LinfPGDAttack(object):
             eta = torch.clamp(X_adv - X_nat, min=-self.epsilon, max=self.epsilon)
             X = torch.clamp(X_nat + eta, min=-1, max=1).detach_()
 
-        return X, eta
-
-    def perturb_iter_data(self, X_nat, X_all, y, c_trg):
-        """
-        X_nat is a tensor with several different images.
-        This does not work at all yet..
-        """
-        X = X_nat.clone().detach_()
-        # X_all_local = X_all.clone().detach_()
-
-        j = 0
-        J = X_all.size(0)
-        J = 1
-
-        for i in range(self.k):
-            # print(i,j)
-            X_j = X_all[j].unsqueeze(0)
-            X_j.requires_grad = True
-            output_att, output_img = self.model(X_j, c_trg)
-
-            out = imFromAttReg(output_att, output_img, X_j)
-
-            self.model.zero_grad()
-            loss = -self.loss_fn(out, y)
-            loss.backward()
-            grad = X_j.grad
-
-            X_adv = X + self.a * grad.sign()
-
-            eta = torch.clamp(X_adv - X_nat, min=-self.epsilon, max=self.epsilon)
-            X = torch.clamp(X_nat + eta, min=-1, max=1).detach_()
-
-            j += 1
-            if j == J:
-                j = 0
+            # Debug
+            # X_adv, loss, grad, output_att, output_img = None, None, None, None, None
 
         return X, eta
 
@@ -88,7 +72,6 @@ class LinfPGDAttack(object):
         J = c_trg.size(0)
 
         for i in range(self.k):
-            # print(i)
             X.requires_grad = True
             output_att, output_img = self.model(X, c_trg[j,:].unsqueeze(0))
 
@@ -96,8 +79,8 @@ class LinfPGDAttack(object):
 
             self.model.zero_grad()
 
-            loss = self.loss_fn(output_att, y)
-            # loss = -self.loss_fn(out, y)
+            # loss = self.loss_fn(output_att, y)
+            loss = self.loss_fn(out, y)
             loss.backward()
             grad = X.grad
 
@@ -126,13 +109,12 @@ class LinfPGDAttack(object):
             self.model.zero_grad()
 
             for j in range(J):
-                # print(i, j)
                 output_att, output_img = self.model(X, c_trg[j,:].unsqueeze(0))
 
                 out = imFromAttReg(output_att, output_img, X)
 
-                loss = self.loss_fn(output_att, y)
-                # loss = -self.loss_fn(out, y)
+                # loss = self.loss_fn(output_att, y)
+                loss = self.loss_fn(out, y)
                 full_loss += loss
 
             full_loss.backward()

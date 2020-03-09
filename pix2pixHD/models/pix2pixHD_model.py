@@ -5,6 +5,7 @@ from torch.autograd import Variable
 from util.image_pool import ImagePool
 from .base_model import BaseModel
 from . import networks
+from util import attacks
 
 class Pix2PixHDModel(BaseModel):
     def name(self):
@@ -27,7 +28,11 @@ class Pix2PixHDModel(BaseModel):
 
         ##### define networks        
         # Generator network
-        netG_input_nc = 6                
+        netG_input_nc = input_nc        
+        if not opt.no_instance:
+            netG_input_nc += 1
+        if self.use_features:
+            netG_input_nc += opt.feat_num                  
         self.netG = networks.define_G(netG_input_nc, opt.output_nc, opt.ngf, opt.netG, 
                                       opt.n_downsample_global, opt.n_blocks_global, opt.n_local_enhancers, 
                                       opt.n_blocks_local, opt.norm, gpu_ids=self.gpu_ids)        
@@ -35,7 +40,9 @@ class Pix2PixHDModel(BaseModel):
         # Discriminator network
         if self.isTrain:
             use_sigmoid = opt.no_lsgan
-            netD_input_nc = 6
+            netD_input_nc = input_nc + opt.output_nc
+            if not opt.no_instance:
+                netD_input_nc += 1
             self.netD = networks.define_D(netD_input_nc, opt.ndf, opt.n_layers_D, opt.norm, use_sigmoid, 
                                           opt.num_D, not opt.no_ganFeat_loss, gpu_ids=self.gpu_ids)
 
@@ -135,29 +142,39 @@ class Pix2PixHDModel(BaseModel):
 
         return input_label, inst_map, real_image, feat_map
 
-    def discriminate(self, tgt_lnd, test_image, use_pool=False):
-        input_concat = torch.cat((tgt_lnd, test_image.detach()), dim=1)
+    def discriminate(self, input_label, test_image, use_pool=False):
+        input_concat = torch.cat((input_label, test_image.detach()), dim=1)
         if use_pool:            
             fake_query = self.fake_pool.query(input_concat)
             return self.netD.forward(fake_query)
         else:
             return self.netD.forward(input_concat)
 
-    def forward(self, tgt_lnd, ref_img, tgt_img, infer=False):
-        # Fake Generation               
-        input_concat = torch.cat((tgt_lnd, ref_img), dim=1)
+    def forward(self, label, inst, image, feat, infer=False):
+        # Encode Inputs
+        input_label, inst_map, real_image, feat_map = self.encode_input(label, inst, image, feat)  
+        
+        # Fake Generation
+        if self.use_features:
+            if not self.opt.load_features:
+                feat_map = self.netE.forward(real_image, inst_map)                     
+            input_concat = torch.cat((input_label, feat_map), dim=1)                        
+        else:
+            input_concat = input_label
+
         fake_image = self.netG.forward(input_concat)
+        # fake_image = self.netG.forward(input_adv)
 
         # Fake Detection and Loss
-        pred_fake_pool = self.discriminate(tgt_lnd, fake_image, use_pool=True)
+        pred_fake_pool = self.discriminate(input_label, fake_image, use_pool=True)
         loss_D_fake = self.criterionGAN(pred_fake_pool, False)        
 
         # Real Detection and Loss        
-        pred_real = self.discriminate(tgt_lnd, tgt_img)
+        pred_real = self.discriminate(input_label, real_image)
         loss_D_real = self.criterionGAN(pred_real, True)
 
         # GAN loss (Fake Passability Loss)        
-        pred_fake = self.netD.forward(torch.cat((tgt_lnd, fake_image), dim=1))        
+        pred_fake = self.netD.forward(torch.cat((input_label, fake_image), dim=1))        
         loss_G_GAN = self.criterionGAN(pred_fake, True)               
         
         # GAN feature matching loss
@@ -168,23 +185,85 @@ class Pix2PixHDModel(BaseModel):
             for i in range(self.opt.num_D):
                 for j in range(len(pred_fake[i])-1):
                     loss_G_GAN_Feat += D_weights * feat_weights * \
-                        self.criterionFeat(pred_fake[i][j], pred_real[i][j].detach()) * self.opt.lambda_feat * 0.1
+                        self.criterionFeat(pred_fake[i][j], pred_real[i][j].detach()) * self.opt.lambda_feat
                    
         # VGG feature matching loss
         loss_G_VGG = 0
         if not self.opt.no_vgg_loss:
-            loss_G_VGG = self.criterionVGG(fake_image, tgt_img) * self.opt.lambda_feat
+            loss_G_VGG = self.criterionVGG(fake_image, real_image) * self.opt.lambda_feat
         
         # Only return the fake_B image if necessary to save BW
         return [ self.loss_filter( loss_G_GAN, loss_G_GAN_Feat, loss_G_VGG, loss_D_real, loss_D_fake ), None if not infer else fake_image ]
 
-    def inference(self, tgt_lnd, ref_img):
+    def inference(self, label, inst, image=None):
+        # Encode Inputs        
+        image = Variable(image) if image is not None else None
+        input_label, inst_map, real_image, _ = self.encode_input(Variable(label), Variable(inst), image, infer=True)
+
         # Fake Generation
-        input_concat = torch.cat((tgt_lnd, ref_img), dim=1)          
+        if self.use_features:
+            if self.opt.use_encoded_image:
+                # encode the real image to get feature map
+                feat_map = self.netE.forward(real_image, inst_map)
+            else:
+                # sample clusters from precomputed features             
+                feat_map = self.sample_features(inst_map)
+            input_concat = torch.cat((input_label, feat_map), dim=1)                        
+        else:
+            input_concat = input_label      
+           
         with torch.no_grad():
             fake_image = self.netG.forward(input_concat)
-
+        
         return fake_image
+
+    def inference_attack(self, label, inst, image=None, perturb=None):
+        # Encode Inputs        
+        image = Variable(image) if image is not None else None
+        input_label, inst_map, real_image, _ = self.encode_input(Variable(label), Variable(inst), image, infer=True)
+
+        # Fake Generation
+        if self.use_features:
+            if self.opt.use_encoded_image:
+                # encode the real image to get feature map
+                feat_map = self.netE.forward(real_image, inst_map)
+            else:
+                # sample clusters from precomputed features             
+                feat_map = self.sample_features(inst_map)
+            input_concat = torch.cat((input_label, feat_map), dim=1)                        
+        else:
+            input_concat = input_label  
+
+        input_adv = torch.clamp(input_concat + perturb, min=-1, max=1)   
+        
+        with torch.no_grad():
+            fake_image = self.netG.forward(input_adv)
+        
+        return fake_image, input_adv
+
+    def attack(self, label, inst, image=None, target=None):
+        # Encode Inputs        
+        image = Variable(image) if image is not None else None
+        input_label, inst_map, real_image, _ = self.encode_input(Variable(label), Variable(inst), image, infer=True)
+
+        # Fake Generation
+        if self.use_features:
+            if self.opt.use_encoded_image:
+                # encode the real image to get feature map
+                feat_map = self.netE.forward(real_image, inst_map)
+            else:
+                # sample clusters from precomputed features             
+                feat_map = self.sample_features(inst_map)
+            input_concat = torch.cat((input_label, feat_map), dim=1)                        
+        else:
+            input_concat = input_label  
+
+        # Attack
+        pgd_attack = attacks.LinfPGDAttack(model=self.netG)
+
+        input_adv, perturb = pgd_attack.perturb(input_concat, target)      
+        
+        return input_adv, perturb
 
     def sample_features(self, inst): 
         # read precomputed feature clusters 
@@ -231,6 +310,7 @@ class Pix2PixHDModel(BaseModel):
 
     def get_edges(self, t):
         edge = torch.cuda.ByteTensor(t.size()).zero_()
+        edge = edge.bool()
         edge[:,:,:,1:] = edge[:,:,:,1:] | (t[:,:,:,1:] != t[:,:,:,:-1])
         edge[:,:,:,:-1] = edge[:,:,:,:-1] | (t[:,:,:,1:] != t[:,:,:,:-1])
         edge[:,:,1:,:] = edge[:,:,1:,:] | (t[:,:,1:,:] != t[:,:,:-1,:])

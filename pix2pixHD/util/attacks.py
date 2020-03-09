@@ -32,13 +32,14 @@ class LinfPGDAttack(object):
         else:
             X = X_nat.clone().detach_()
             # use the following if FGSM or I-FGSM and random seeds are fixed
-            # X = X_nat.clone().detach_() + torch.tensor(np.random.uniform(-0.001, 0.001, X_nat.shape).astype('float32')).cuda()
+            X = X_nat.clone().detach_() + torch.tensor(np.random.uniform(-0.001, 0.001, X_nat.shape).astype('float32')).cuda() 
 
         for i in range(self.k):
             X.requires_grad = True
             output = self.model(X)
 
             self.model.zero_grad()
+
             # Minus in the loss means "towards" and plus means "away from"
             loss = self.loss_fn(output, y)
             loss.backward()
@@ -49,7 +50,9 @@ class LinfPGDAttack(object):
             eta = torch.clamp(X_adv - X_nat, min=-self.epsilon, max=self.epsilon)
             X = torch.clamp(X_nat + eta, min=-1, max=1).detach_()
 
-        return X, eta
+            eta, X_adv, loss, grad, output = None, None, None, None, None
+
+        return X, X - X_nat
 
 def clip_tensor(X, Y, Z):
     # Clip X with Y min and Z max

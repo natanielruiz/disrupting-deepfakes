@@ -71,13 +71,12 @@ class TestModel(BaseModel):
         """Run forward pass."""
         self.fake_noattack = self.netG(self.real)  # G(real)
 
-    def attack(self):
+    def attack(self, target):
         image = self.real
+        
         # Attack
         pgd_attack = attacks.LinfPGDAttack(model=self.netG)
-        black = np.zeros((1, 3, image.size(2), image.size(3)))
-        black = torch.FloatTensor(black).cuda()
-        input_adv, perturb = pgd_attack.perturb(image, black)      
+        input_adv, perturb = pgd_attack.perturb(image, target)      
         
         return input_adv, perturb
 
@@ -92,8 +91,13 @@ class TestModel(BaseModel):
         l2 = F.mse_loss(generated, generated_noattack)
         l0 = (generated - generated_noattack).norm(0)
         d = (generated - generated_noattack).norm(float('-inf'))
+
+        if F.mse_loss(generated, generated_noattack) > 0.05:
+            n_dist = 1
+        else:
+            n_dist = 0
         
-        return l1, l2, l0, d
+        return l1, l2, l0, d, n_dist
 
     def optimize_parameters(self):
         """No optimization for test model."""

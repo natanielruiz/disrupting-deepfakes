@@ -384,78 +384,57 @@ class Solver(Utils):
                                                            reference_expression_images[target_idx]))
 
         if mode == 'animate_image':
-
-            black = np.zeros((1,3,128,128))
-            black = torch.FloatTensor(black).to(self.device)
-
             # Initialize Metrics
-            l1_error = 0.0
-            l2_error = 0.0
-            min_dist = 0.0
-            l0_error = 0.0
-            perceptual_error = 0.0
-            n_samples = 0
+            l1_error, l2_error, min_dist, l0_error = 0.0, 0.0, 0.0, 0.0
+            n_dist, n_samples = 0, 0
 
             pgd_attack = attacks.LinfPGDAttack(model=self.G, device=self.device)
 
             images_to_animate_path = sorted(glob.glob(
                 self.animation_images_dir + '/*'))
 
-            x_advs = []
-
             for idx, image_path in enumerate(images_to_animate_path):
                 image_to_animate = regular_image_transform(Image.open(image_path)).unsqueeze(0).cuda()
 
-                all_images = torch.cat([regular_image_transform(Image.open(path)).unsqueeze(0) for path in images_to_animate_path], dim=0).cuda()
+                for target_idx in range(targets.size(0)-1):
+                    print('image', idx, 'AU', target_idx)
 
-                # Transfer to different images
-                # if idx == 0:
-                #     for target_idx in range(targets.size(0)):
-                #         x_adv, perturb = pgd_attack.perturb(image_to_animate, black, targets[target_idx, :].unsqueeze(0).cuda())
-                #         x_advs.append((x_adv, perturb))
-
-                for target_idx in range(targets.size(0)):
-                    # Transfer to different classes
-                    # if target_idx == 0:
-                        # img = regular_image_transform(Image.open(images_to_animate_path[idx])).unsqueeze(0).cuda()
-
-                        # Wrong Class
-                        # x_adv, perturb = pgd_attack.perturb(image_to_animate, black, targets[0, :].unsqueeze(0).cuda())
-
-                        # Joint Class Conditional
-                        # x_adv, perturb = pgd_attack.perturb_joint_class(image_to_animate, black, targets[:, :].cuda())
-
-                        # Iterative Class Conditional
-                        # x_adv, perturb = pgd_attack.perturb_iter_class(image_to_animate, black, targets[:, :].cuda())
-                        
-                        # Iterative Data
-                        # _, perturb = pgd_attack.perturb_iter_data(image_to_animate, all_images, black, targets[68, :].unsqueeze(0).cuda())
-                        
                     targets_au = targets[target_idx, :].unsqueeze(0).cuda()
 
+                    with torch.no_grad():
+                        resulting_images_att_noattack, resulting_images_reg_noattack = self.G(
+                            image_to_animate, targets_au)
+                        resulting_image_noattack = self.imFromAttReg(
+                            resulting_images_att_noattack, resulting_images_reg_noattack, image_to_animate).cuda()
+
+                    # Transfer to different classes
+                    # if target_idx == 0:
+                        # Wrong Class
+                        # x_adv, perturb = pgd_attack.perturb(image_to_animate, image_to_animate, targets[0, :].unsqueeze(0).cuda())
+
+                        # Joint Class Conditional
+                        # x_adv, perturb = pgd_attack.perturb_joint_class(image_to_animate, image_to_animate, targets[:, :].cuda())
+
+                        # Iterative Class Conditional
+                        # x_adv, perturb = pgd_attack.perturb_iter_class(image_to_animate, image_to_animate, targets[:, :].cuda())
+                        
+                        # Iterative Data
+                        # _, perturb = pgd_attack.perturb_iter_data(image_to_animate, all_images, image_to_animate, targets[68, :].unsqueeze(0).cuda())
+
                     # Normal Attack
-                    # x_adv, perturb = pgd_attack.perturb(image_to_animate, black, targets_au)
+                    x_adv, perturb = pgd_attack.perturb(image_to_animate, resulting_image_noattack, targets_au)
 
-                    # x_adv, perturb = x_advs[target_idx]
-
-                    # x_adv = image_to_animate + perturb
+                    # Use this line if transferring attacks
+                    x_adv = image_to_animate + perturb
 
                     # No Attack
-                    x_adv = image_to_animate
-
-                    # print(image_to_animate.shape, x_adv.shape)
+                    # x_adv = image_to_animate
 
                     with torch.no_grad():
                         resulting_images_att, resulting_images_reg = self.G(
                             x_adv, targets_au)
                         resulting_image = self.imFromAttReg(
                             resulting_images_att, resulting_images_reg, x_adv).cuda()
-
-                    # with torch.no_grad():
-                    #     resulting_images_att_noattack, resulting_images_reg_noattack = self.G(
-                    #         image_to_animate, targets_au)
-                    #     resulting_image_noattack = self.imFromAttReg(
-                    #         resulting_images_att_noattack, resulting_images_reg_noattack, image_to_animate).cuda()
 
                     save_image((resulting_image+1)/2, os.path.join(self.animation_results_dir,
                                                                    image_path.split('/')[-1].split('.')[0]
@@ -465,50 +444,27 @@ class Solver(Utils):
                                                                    image_path.split('/')[-1].split('.')[0]
                                                                    + '_ref.jpg'))
 
-                    # l1_error += F.l1_loss(resulting_image, resulting_image_noattack)
-                    # l2_error += F.mse_loss(resulting_image, resulting_image_noattack)
-                    # l0_error += (resulting_image - resulting_image_noattack).norm(0)
-                    # min_dist += (resulting_image - resulting_image_noattack).norm(float('-inf'))
+                    # Compare to ground-truth output
+                    l1_error += F.l1_loss(resulting_image, resulting_image_noattack)
+                    l2_error += F.mse_loss(resulting_image, resulting_image_noattack)
+                    l0_error += (resulting_image - resulting_image_noattack).norm(0)
+                    min_dist += (resulting_image - resulting_image_noattack).norm(float('-inf'))
 
                     # Compare to input image
-                    l1_error += F.l1_loss(resulting_image, image_to_animate)
-                    l2_error += F.mse_loss(resulting_image, image_to_animate)
-                    l0_error += (resulting_image - image_to_animate).norm(0)
-                    min_dist += (resulting_image - image_to_animate).norm(float('-inf'))
+                    # l1_error += F.l1_loss(resulting_image, x_adv)
+                    # l2_error += F.mse_loss(resulting_image, x_adv)
+                    # l0_error += (resulting_image - x_adv).norm(0)
+                    # min_dist += (resulting_image - x_adv).norm(float('-inf'))
 
+                    if F.mse_loss(resulting_image, resulting_image_noattack) > 0.05:
+                        n_dist += 1
                     n_samples += 1
 
+                    # Debug
+                    # x_adv, targets_au, resulting_image, resulting_images_att, resulting_images_reg = None, None, None, None, None
+                
+                image_to_animate = None
+
             # Print metrics
-            print('{} images. L1 error: {}. L2 error: {}. L0 error: {}. L_-inf error: {}. Perceptual error: {}.'.format(n_samples, 
-            l1_error / n_samples, l2_error / n_samples, l0_error / n_samples, min_dist / n_samples, perceptual_error / n_samples))
-
-        # """ Code to modify single Action Units """
-
-        # Set data loader.
-        # self.data_loader = self.data_loader
-
-        # with torch.no_grad():
-        #     for i, (self.x_real, c_org) in enumerate(self.data_loader):
-
-        #         # Prepare input images and target domain labels.
-        #         self.x_real = self.x_real.to(self.device)
-        #         c_org = c_org.to(self.device)
-
-        #         # c_trg_list = self.create_labels(self.data_loader)
-
-        #         crit, cl_regression = self.D(self.x_real)
-        #         # print(crit)
-        #         print("ORIGINAL", c_org[0])
-        #         print("REGRESSION", cl_regression[0])
-
-        #         for au in range(17):
-        #             alpha = np.linspace(-0.3,0.3,10)
-        #             for j, a in enumerate(alpha):
-        #                 new_emotion = c_org.clone()
-        #                 new_emotion[:,au]=torch.clamp(new_emotion[:,au]+a, 0, 1)
-        #                 attention, reg = self.G(self.x_real, new_emotion)
-        #                 x_fake = self.imFromAttReg(attention, reg, self.x_real)
-        #                 save_image((x_fake+1)/2, os.path.join(self.result_dir, '{}-{}-{}-images.jpg'.format(i,au,j)))
-
-        #         if i >= 3:
-        #             break
+            print('{} images. L1 error: {}. L2 error: {}. prop_dist: {}. L0 error: {}. L_-inf error: {}.'.format(n_samples, 
+            l1_error / n_samples, l2_error / n_samples, float(n_dist) / float(n_samples), l0_error / n_samples, min_dist / n_samples))

@@ -75,7 +75,7 @@ def get_config():
     # parser.add_argument('--animation_images_dir', type=str,
     #                     default='animations/eric_andre/images_to_animate')
     parser.add_argument('--animation_images_dir', type=str,
-                        default='data/celeba_small/')
+                        default='data/celeba/images_aligned/new_small')
     parser.add_argument('--animation_attribute_images_dir', type=str,
                         default='animations/eric_andre/attribute_images')
     parser.add_argument('--animation_attributes_path', type=str,

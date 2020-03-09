@@ -16,6 +16,11 @@ from torchvision import transforms
 
 import defenses.smoothing as smoothing
 
+# torch.manual_seed(0)
+# torch.backends.cudnn.deterministic = True
+# torch.backends.cudnn.benchmark = False
+np.random.seed(0)
+
 class Solver(object):
     """Solver for training and testing StarGAN."""
 
@@ -112,6 +117,33 @@ class Solver(object):
         self.load_model_weights(self.G, G_path)
         self.D.load_state_dict(torch.load(D_path, map_location=lambda storage, loc: storage))
 
+    def build_and_restore_alt_model(self):
+        """Create a generator and a discriminator."""
+        if self.dataset in ['CelebA', 'RaFD']:
+            self.G2 = Generator(self.g_conv_dim, self.c_dim, self.g_repeat_num)
+            self.D2 = Discriminator(self.image_size, self.d_conv_dim, self.c_dim, self.d_repeat_num) 
+        elif self.dataset in ['Both']:
+            self.G2 = Generator(self.g_conv_dim, self.c_dim+self.c2_dim+2, self.g_repeat_num)   # 2 for mask vector.
+            self.D2 = Discriminator(self.image_size, self.d_conv_dim, self.c_dim+self.c2_dim, self.d_repeat_num)
+
+        self.g_optimizer2 = torch.optim.Adam(self.G2.parameters(), self.g_lr, [self.beta1, self.beta2])
+        self.d_optimizer2 = torch.optim.Adam(self.D2.parameters(), self.d_lr, [self.beta1, self.beta2])
+        self.print_network(self.G2, 'G')
+        self.print_network(self.D2, 'D')
+            
+        self.G2.to(self.device)
+        self.D2.to(self.device)
+        """Restore the trained generator and discriminator."""
+        resume_iters = 50000
+        model_save_dir = 'stargan/models'
+        print('Loading the trained models from step {}...'.format(resume_iters))
+        G_path = os.path.join(model_save_dir, '{}-G.ckpt'.format(resume_iters))
+        D_path = os.path.join(model_save_dir, '{}-D.ckpt'.format(resume_iters))
+        
+        # self.G.load_state_dict(torch.load(G_path, map_location=lambda storage, loc: storage))
+        self.load_model_weights(self.G2, G_path)
+        self.D2.load_state_dict(torch.load(D_path, map_location=lambda storage, loc: storage))
+
     def load_model_weights(self, model, path):
         pretrained_dict = torch.load(path, map_location=lambda storage, loc: storage)
         model_dict = model.state_dict()
@@ -200,7 +232,7 @@ class Solver(object):
             return F.cross_entropy(logit, target)
 
     def train(self):
-        """Train StarGAN within a single dataset."""
+        """Vanilla Training of StarGAN within a single dataset."""
         # Set data loader.
         if self.dataset == 'CelebA':
             data_loader = self.celeba_loader
@@ -261,18 +293,18 @@ class Solver(object):
             # =================================================================================== #
 
             # Compute loss with real images.
-            out_src, out_cls = self.D(x_real)
+            out_src, out_cls = self.D(x_real)       # No Attack
             d_loss_real = - torch.mean(out_src)
             d_loss_cls = self.classification_loss(out_cls, label_org, self.dataset)
 
             # Compute loss with fake images.
-            x_fake = self.G(x_real, c_trg)
-            out_src, out_cls = self.D(x_fake.detach())
+            x_fake, _ = self.G(x_real, c_trg)       # No Attack
+            out_src, out_cls = self.D(x_fake.detach())  # No Attack
             d_loss_fake = torch.mean(out_src)
 
             # Compute loss for gradient penalty.
             alpha = torch.rand(x_real.size(0), 1, 1, 1).to(self.device)
-            x_hat = (alpha * x_real.data + (1 - alpha) * x_fake.data).requires_grad_(True)
+            x_hat = (alpha * x_real.data + (1 - alpha) * x_fake.data).requires_grad_(True)  # No Attack
             out_src, _ = self.D(x_hat)
             d_loss_gp = self.gradient_penalty(out_src, x_hat)
 
@@ -294,14 +326,13 @@ class Solver(object):
             # =================================================================================== #
             
             if (i+1) % self.n_critic == 0:
-                # Original-to-target domain.
-                x_fake = self.G(x_real, c_trg)
+                x_fake, _ = self.G(x_real, c_trg)     # No Attack
                 out_src, out_cls = self.D(x_fake)
                 g_loss_fake = - torch.mean(out_src)
                 g_loss_cls = self.classification_loss(out_cls, label_trg, self.dataset)
 
                 # Target-to-original domain.
-                x_reconst = self.G(x_fake, c_org)
+                x_reconst, _ = self.G(x_fake, c_org)      # No Attack
                 g_loss_rec = torch.mean(torch.abs(x_real - x_reconst))
 
                 # Backward and optimize.
@@ -337,7 +368,346 @@ class Solver(object):
                 with torch.no_grad():
                     x_fake_list = [x_fixed]
                     for c_fixed in c_fixed_list:
-                        x_fake_list.append(self.G(x_fixed, c_fixed))
+                        elt, _ = self.G(x_fixed, c_fixed)
+                        x_fake_list.append(elt)
+                    x_concat = torch.cat(x_fake_list, dim=3)
+                    sample_path = os.path.join(self.sample_dir, '{}-images.jpg'.format(i+1))
+                    save_image(self.denorm(x_concat.data.cpu()), sample_path, nrow=1, padding=0)
+                    print('Saved real and fake images into {}...'.format(sample_path))
+
+            # Save model checkpoints.
+            if (i+1) % self.model_save_step == 0:
+                G_path = os.path.join(self.model_save_dir, '{}-G.ckpt'.format(i+1))
+                D_path = os.path.join(self.model_save_dir, '{}-D.ckpt'.format(i+1))
+                torch.save(self.G.state_dict(), G_path)
+                torch.save(self.D.state_dict(), D_path)
+                print('Saved model checkpoints into {}...'.format(self.model_save_dir))
+
+            # Decay learning rates.
+            if (i+1) % self.lr_update_step == 0 and (i+1) > (self.num_iters - self.num_iters_decay):
+                g_lr -= (self.g_lr / float(self.num_iters_decay))
+                d_lr -= (self.d_lr / float(self.num_iters_decay))
+                self.update_lr(g_lr, d_lr)
+                print ('Decayed learning rates, g_lr: {}, d_lr: {}.'.format(g_lr, d_lr))
+    
+    def train_adv_gen(self):
+        """Adversarial Training for StarGAN only for Generator, within a single dataset."""
+        # Set data loader.
+        if self.dataset == 'CelebA':
+            data_loader = self.celeba_loader
+        elif self.dataset == 'RaFD':
+            data_loader = self.rafd_loader
+
+        # Fetch fixed inputs for debugging.
+        data_iter = iter(data_loader)
+        x_fixed, c_org = next(data_iter)
+        x_fixed = x_fixed.to(self.device)
+        c_fixed_list = self.create_labels(c_org, self.c_dim, self.dataset, self.selected_attrs)
+
+        # Learning rate cache for decaying.
+        g_lr = self.g_lr
+        d_lr = self.d_lr
+
+        # Start training from scratch or resume training.
+        start_iters = 0
+        if self.resume_iters:
+            start_iters = self.resume_iters
+            self.restore_model(self.resume_iters)
+
+        # Start training.
+        print('Start training...')
+        start_time = time.time()
+        for i in range(start_iters, self.num_iters):
+
+            # =================================================================================== #
+            #                             1. Preprocess input data                                #
+            # =================================================================================== #
+
+            # Fetch real images and labels.
+            try:
+                x_real, label_org = next(data_iter)
+            except:
+                data_iter = iter(data_loader)
+                x_real, label_org = next(data_iter)
+
+            # Generate target domain labels randomly.
+            rand_idx = torch.randperm(label_org.size(0))
+            label_trg = label_org[rand_idx]
+
+            if self.dataset == 'CelebA':
+                c_org = label_org.clone()
+                c_trg = label_trg.clone()
+            elif self.dataset == 'RaFD':
+                c_org = self.label2onehot(label_org, self.c_dim)
+                c_trg = self.label2onehot(label_trg, self.c_dim)
+
+            x_real = x_real.to(self.device)           # Input images.
+            c_org = c_org.to(self.device)             # Original domain labels.
+            c_trg = c_trg.to(self.device)             # Target domain labels.
+            label_org = label_org.to(self.device)     # Labels for computing classification loss.
+            label_trg = label_trg.to(self.device)     # Labels for computing classification loss.
+
+            pgd_attack = attacks.LinfPGDAttack(model=self.G, device=self.device, feat=None)
+            # =================================================================================== #
+            #                             2. Train the discriminator                              #
+            # =================================================================================== #
+
+            # Compute loss with real images.
+            out_src, out_cls = self.D(x_real)       # No Attack
+            d_loss_real = - torch.mean(out_src)
+            d_loss_cls = self.classification_loss(out_cls, label_org, self.dataset)
+
+            # Compute loss with fake images.
+            x_fake, _ = self.G(x_real, c_trg)       # No Attack
+            out_src, out_cls = self.D(x_fake.detach())  # No Attack
+            d_loss_fake = torch.mean(out_src)
+
+            # Compute loss for gradient penalty.
+            alpha = torch.rand(x_real.size(0), 1, 1, 1).to(self.device)
+            x_hat = (alpha * x_real.data + (1 - alpha) * x_fake.data).requires_grad_(True)  # No Attack
+            out_src, _ = self.D(x_hat)
+            d_loss_gp = self.gradient_penalty(out_src, x_hat)
+
+            # Backward and optimize.
+            d_loss = d_loss_real + d_loss_fake + self.lambda_cls * d_loss_cls + self.lambda_gp * d_loss_gp
+            self.reset_grad()
+            d_loss.backward()
+            self.d_optimizer.step()
+
+            # Logging.
+            loss = {}
+            loss['D/loss_real'] = d_loss_real.item()
+            loss['D/loss_fake'] = d_loss_fake.item()
+            loss['D/loss_cls'] = d_loss_cls.item()
+            loss['D/loss_gp'] = d_loss_gp.item()
+            
+            # =================================================================================== #
+            #                               3. Train the generator                                #
+            # =================================================================================== #
+
+            # Black image
+            black = np.zeros((x_real.shape[0],3,256,256))
+            black = torch.FloatTensor(black).to(self.device)
+            
+            if (i+1) % self.n_critic == 0:
+                # Original-to-target domain.
+                pgd_attack = attacks.LinfPGDAttack(model=self.G, device=self.device, feat=None)
+                x_real_adv = attacks.perturb_batch(x_real, black, c_trg, self.G, pgd_attack)
+
+                x_fake, _ = self.G(x_real_adv, c_trg)   # Attack
+                out_src, out_cls = self.D(x_fake)
+                g_loss_fake = - torch.mean(out_src)
+                g_loss_cls = self.classification_loss(out_cls, label_trg, self.dataset)
+
+                # Target-to-original domain.
+                x_fake_adv = attacks.perturb_batch(x_fake, black, c_org, self.G, pgd_attack)
+                x_reconst, _ = self.G(x_fake_adv, c_org)    # Attack
+                g_loss_rec = torch.mean(torch.abs(x_real - x_reconst))
+
+                # Backward and optimize.
+                g_loss = g_loss_fake + self.lambda_rec * g_loss_rec + self.lambda_cls * g_loss_cls
+                self.reset_grad()
+                g_loss.backward()
+                self.g_optimizer.step()
+
+                # Logging.
+                loss['G/loss_fake'] = g_loss_fake.item()
+                loss['G/loss_rec'] = g_loss_rec.item()
+                loss['G/loss_cls'] = g_loss_cls.item()
+
+            # =================================================================================== #
+            #                                 4. Miscellaneous                                    #
+            # =================================================================================== #
+
+            # Print out training information.
+            if (i+1) % self.log_step == 0:
+                et = time.time() - start_time
+                et = str(datetime.timedelta(seconds=et))[:-7]
+                log = "Elapsed [{}], Iteration [{}/{}]".format(et, i+1, self.num_iters)
+                for tag, value in loss.items():
+                    log += ", {}: {:.4f}".format(tag, value)
+                print(log)
+
+                if self.use_tensorboard:
+                    for tag, value in loss.items():
+                        self.logger.scalar_summary(tag, value, i+1)
+
+            # Translate fixed images for debugging.
+            if (i+1) % self.sample_step == 0:
+                with torch.no_grad():
+                    x_fake_list = [x_fixed]
+                    for c_fixed in c_fixed_list:
+                        elt, _ = self.G(x_fixed, c_fixed)
+                        x_fake_list.append(elt)
+                    x_concat = torch.cat(x_fake_list, dim=3)
+                    sample_path = os.path.join(self.sample_dir, '{}-images.jpg'.format(i+1))
+                    save_image(self.denorm(x_concat.data.cpu()), sample_path, nrow=1, padding=0)
+                    print('Saved real and fake images into {}...'.format(sample_path))
+
+            # Save model checkpoints.
+            if (i+1) % self.model_save_step == 0:
+                G_path = os.path.join(self.model_save_dir, '{}-G.ckpt'.format(i+1))
+                D_path = os.path.join(self.model_save_dir, '{}-D.ckpt'.format(i+1))
+                torch.save(self.G.state_dict(), G_path)
+                torch.save(self.D.state_dict(), D_path)
+                print('Saved model checkpoints into {}...'.format(self.model_save_dir))
+
+            # Decay learning rates.
+            if (i+1) % self.lr_update_step == 0 and (i+1) > (self.num_iters - self.num_iters_decay):
+                g_lr -= (self.g_lr / float(self.num_iters_decay))
+                d_lr -= (self.d_lr / float(self.num_iters_decay))
+                self.update_lr(g_lr, d_lr)
+                print ('Decayed learning rates, g_lr: {}, d_lr: {}.'.format(g_lr, d_lr))
+
+    def train_adv_both(self):
+        """G+D Adversarial Training for StarGAN with both Discriminator and Generator, within a single dataset."""
+        # Set data loader.
+        if self.dataset == 'CelebA':
+            data_loader = self.celeba_loader
+        elif self.dataset == 'RaFD':
+            data_loader = self.rafd_loader
+
+        # Fetch fixed inputs for debugging.
+        data_iter = iter(data_loader)
+        x_fixed, c_org = next(data_iter)
+        x_fixed = x_fixed.to(self.device)
+        c_fixed_list = self.create_labels(c_org, self.c_dim, self.dataset, self.selected_attrs)
+
+        # Learning rate cache for decaying.
+        g_lr = self.g_lr
+        d_lr = self.d_lr
+
+        # Start training from scratch or resume training.
+        start_iters = 0
+        if self.resume_iters:
+            start_iters = self.resume_iters
+            self.restore_model(self.resume_iters)
+
+        # Start training.
+        print('Start training...')
+        start_time = time.time()
+        for i in range(start_iters, self.num_iters):
+
+            # =================================================================================== #
+            #                             1. Preprocess input data                                #
+            # =================================================================================== #
+
+            # Fetch real images and labels.
+            try:
+                x_real, label_org = next(data_iter)
+            except:
+                data_iter = iter(data_loader)
+                x_real, label_org = next(data_iter)
+
+            # Generate target domain labels randomly.
+            rand_idx = torch.randperm(label_org.size(0))
+            label_trg = label_org[rand_idx]
+
+            if self.dataset == 'CelebA':
+                c_org = label_org.clone()
+                c_trg = label_trg.clone()
+            elif self.dataset == 'RaFD':
+                c_org = self.label2onehot(label_org, self.c_dim)
+                c_trg = self.label2onehot(label_trg, self.c_dim)
+
+            x_real = x_real.to(self.device)           # Input images.
+            c_org = c_org.to(self.device)             # Original domain labels.
+            c_trg = c_trg.to(self.device)             # Target domain labels.
+            label_org = label_org.to(self.device)     # Labels for computing classification loss.
+            label_trg = label_trg.to(self.device)     # Labels for computing classification loss.
+
+            # Black image
+            black = np.zeros((x_real.shape[0],3,256,256))
+            black = torch.FloatTensor(black).to(self.device)
+
+            pgd_attack = attacks.LinfPGDAttack(model=self.G, device=self.device, feat=None)
+            x_real_adv = attacks.perturb_batch(x_real, black, c_trg, self.G, pgd_attack)    # Adversarial training
+
+            # =================================================================================== #
+            #                             2. Train the discriminator                              #
+            # =================================================================================== #
+
+            # Compute loss with real images.
+            out_src, out_cls = self.D(x_real_adv)   # Attack
+            d_loss_real = - torch.mean(out_src)
+            d_loss_cls = self.classification_loss(out_cls, label_org, self.dataset)
+
+            # Compute loss with fake images.
+            x_fake, _ = self.G(x_real_adv, c_trg)   # Attack
+            x_fake_adv = attacks.perturb_batch(x_fake, black, c_org, self.G, pgd_attack)    # Adversarial training
+            out_src, out_cls = self.D(x_fake_adv.detach())  # Attack
+            d_loss_fake = torch.mean(out_src)
+
+            # Compute loss for gradient penalty.
+            alpha = torch.rand(x_real.size(0), 1, 1, 1).to(self.device)
+            x_hat = (alpha * x_real_adv.data + (1 - alpha) * x_fake_adv.data).requires_grad_(True)  # Attack
+            out_src, _ = self.D(x_hat)
+            d_loss_gp = self.gradient_penalty(out_src, x_hat)
+
+            # Backward and optimize.
+            d_loss = d_loss_real + d_loss_fake + self.lambda_cls * d_loss_cls + self.lambda_gp * d_loss_gp
+            self.reset_grad()
+            d_loss.backward()
+            self.d_optimizer.step()
+
+            # Logging.
+            loss = {}
+            loss['D/loss_real'] = d_loss_real.item()
+            loss['D/loss_fake'] = d_loss_fake.item()
+            loss['D/loss_cls'] = d_loss_cls.item()
+            loss['D/loss_gp'] = d_loss_gp.item()
+            
+            # =================================================================================== #
+            #                               3. Train the generator                                #
+            # =================================================================================== #
+            
+            if (i+1) % self.n_critic == 0:
+                # Original-to-target domain
+                x_fake, _ = self.G(x_real_adv, c_trg)   # Attack
+                out_src, out_cls = self.D(x_fake)
+                g_loss_fake = - torch.mean(out_src)
+                g_loss_cls = self.classification_loss(out_cls, label_trg, self.dataset)
+
+                # Target-to-original domain.
+                x_fake_adv = attacks.perturb_batch(x_fake, black, c_org, self.G, pgd_attack)
+                x_reconst, _ = self.G(x_fake_adv, c_org)    # Attack
+                g_loss_rec = torch.mean(torch.abs(x_real - x_reconst))
+
+                # Backward and optimize.
+                g_loss = g_loss_fake + self.lambda_rec * g_loss_rec + self.lambda_cls * g_loss_cls
+                self.reset_grad()
+                g_loss.backward()
+                self.g_optimizer.step()
+
+                # Logging.
+                loss['G/loss_fake'] = g_loss_fake.item()
+                loss['G/loss_rec'] = g_loss_rec.item()
+                loss['G/loss_cls'] = g_loss_cls.item()
+
+            # =================================================================================== #
+            #                                 4. Miscellaneous                                    #
+            # =================================================================================== #
+
+            # Print out training information.
+            if (i+1) % self.log_step == 0:
+                et = time.time() - start_time
+                et = str(datetime.timedelta(seconds=et))[:-7]
+                log = "Elapsed [{}], Iteration [{}/{}]".format(et, i+1, self.num_iters)
+                for tag, value in loss.items():
+                    log += ", {}: {:.4f}".format(tag, value)
+                print(log)
+
+                if self.use_tensorboard:
+                    for tag, value in loss.items():
+                        self.logger.scalar_summary(tag, value, i+1)
+
+            # Translate fixed images for debugging.
+            if (i+1) % self.sample_step == 0:
+                with torch.no_grad():
+                    x_fake_list = [x_fixed]
+                    for c_fixed in c_fixed_list:
+                        elt, _ = self.G(x_fixed, c_fixed)
+                        x_fake_list.append(elt)
                     x_concat = torch.cat(x_fake_list, dim=3)
                     sample_path = os.path.join(self.sample_dir, '{}-images.jpg'.format(i+1))
                     save_image(self.denorm(x_concat.data.cpu()), sample_path, nrow=1, padding=0)
@@ -359,7 +729,7 @@ class Solver(object):
                 print ('Decayed learning rates, g_lr: {}, d_lr: {}.'.format(g_lr, d_lr))
 
     def train_multi(self):
-        """Train StarGAN with multiple datasets."""        
+        """Vanilla Training for StarGAN with multiple datasets."""        
         # Data iterators.
         celeba_iter = iter(self.celeba_loader)
         rafd_iter = iter(self.rafd_loader)
@@ -541,7 +911,7 @@ class Solver(object):
                 print ('Decayed learning rates, g_lr: {}, d_lr: {}.'.format(g_lr, d_lr))
 
     def test(self):
-        """Translate images using StarGAN trained on a single dataset."""
+        """Translate images using StarGAN trained on a single dataset. No attack."""
         # Load the trained generator.
         self.restore_model(self.test_iters)
         
@@ -569,13 +939,11 @@ class Solver(object):
                 save_image(self.denorm(x_concat.data.cpu()), result_path, nrow=1, padding=0)
                 print('Saved real and fake images into {}...'.format(result_path))
 
+    
+
     def test_attack(self):
-        """Translate images using StarGAN trained on a single dataset."""
+        """Vanilla or blur attacks."""
 
-        layer_dict = {0: 2, 1: 5, 2: 8, 3: 9, 4: 10, 5: 11, 6: 12, 7: 13, 8: 14, 9: 17, 10: 20, 11: None}
-        torch.manual_seed(0)
-
-        # for layer_num_orig in range(12):
         # Load the trained generator.
         self.restore_model(self.test_iters)
         
@@ -586,98 +954,76 @@ class Solver(object):
             data_loader = self.rafd_loader
 
         # Initialize Metrics
-        l1_error = 0.0
-        l2_error = 0.0
-        min_dist = 0.0
-        l0_error = 0.0
-        perceptual_error = 0.0
-        n_samples = 0
+        l1_error, l2_error, min_dist, l0_error = 0.0, 0.0, 0.0, 0.0
+        n_dist, n_samples = 0, 0
 
         for i, (x_real, c_org) in enumerate(data_loader):
-            # Black image
-            black = np.zeros((1,3,256,256))
-            black = torch.FloatTensor(black).to(self.device)
-
-            # black = torch.FloatTensor(torch.rand((1,3,256,256))).to(self.device)
-
             # Prepare input images and target domain labels.
             x_real = x_real.to(self.device)
             c_trg_list = self.create_labels(c_org, self.c_dim, self.dataset, self.selected_attrs)
 
             pgd_attack = attacks.LinfPGDAttack(model=self.G, device=self.device, feat=None)
 
-            # Translate images.
+            # Translated images.
             x_fake_list = [x_real]
-
-            # x_advs = []
-            # if i == 0:
-            #     _, perturb = pgd_attack.perturb(x_real, black, c_trg_list[0])
-                # for idx, c_trg in enumerate(c_trg_list):
-                #     x_adv, perturb = pgd_attack.perturb(x_real, black, c_trg)
-                #     x_advs.append((x_adv, perturb))
-                #     break
             
             for idx, c_trg in enumerate(c_trg_list):
+                print('image', i, 'class', idx)
                 with torch.no_grad():
                     x_real_mod = x_real
-                    x_real_mod = self.blur_tensor(x_real_mod)
+                    # x_real_mod = self.blur_tensor(x_real_mod) # use blur
                     gen_noattack, gen_noattack_feats = self.G(x_real_mod, c_trg)
-                # Attack
-                # x_adv, perturb = pgd_attack.perturb(x_real, black, c_trg)
-                # x_adv, perturb, blurred_image = pgd_attack.perturb_blur(x_real, black, c_trg)
-                x_adv, perturb = pgd_attack.perturb_blur_iter(x_real, black, c_trg)
-                # _, perturb = x_advs[idx]
 
-                # This next line is key for blur defense
+                # Attacks
+                x_adv, perturb = pgd_attack.perturb(x_real, gen_noattack, c_trg)                          # Vanilla attack
+                # x_adv, perturb, blurred_image = pgd_attack.perturb_blur(x_real, gen_noattack, c_trg)    # White-box attack on blur
+                # x_adv, perturb = pgd_attack.perturb_blur_iter_full(x_real, gen_noattack, c_trg)         # Spread-spectrum attack on blur
+                # x_adv, perturb = pgd_attack.perturb_blur_eot(x_real, gen_noattack, c_trg)               # EoT blur adaptation
+
+                # Generate adversarial example
                 x_adv = x_real + perturb
-                # x_adv = torch.clamp(x_real + perturb, min=-1, max=1)
 
-                # TODO: Blurring here.
-                x_adv = self.blur_tensor(x_adv)
+                # No attack
+                # x_adv = x_real
+
+                # x_adv = self.blur_tensor(x_adv)   # use blur
 
                 # Metrics
                 with torch.no_grad():
-                    gen, preproc_x = self.G(x_adv, c_trg)
-                    # gen, gen_feats = self.G(x_adv, c_trg)
+                    gen, _ = self.G(x_adv, c_trg)
 
                     # Add to lists
-                    # x_fake_list.append(preproc_x)
                     # x_fake_list.append(blurred_image)
                     x_fake_list.append(x_adv)
                     # x_fake_list.append(perturb)
                     x_fake_list.append(gen)
 
-                    # No Attack
-                    # gen_noattack, _ = self.G(x_real, c_trg)
-                    # gen_noattack, gen_noattack_feats = self.G(x_real, c_trg)
-
                     l1_error += F.l1_loss(gen, gen_noattack)
                     l2_error += F.mse_loss(gen, gen_noattack)
                     l0_error += (gen - gen_noattack).norm(0)
                     min_dist += (gen - gen_noattack).norm(float('-inf'))
+                    if F.mse_loss(gen, gen_noattack) > 0.05:
+                        n_dist += 1
                     n_samples += 1
-                # break
 
             # Save the translated images.
             x_concat = torch.cat(x_fake_list, dim=3)
             result_path = os.path.join(self.result_dir, '{}-images.jpg'.format(i+1))
             save_image(self.denorm(x_concat.data.cpu()), result_path, nrow=1, padding=0)
-            # print('Saved real and fake images into {}...'.format(result_path))
-            # if i == 3:
-            #     break
-            if i == 49:
+            if i == 49:     # stop after this many images
                 break
         
         # Print metrics
-        print('{} images. L1 error: {}. L2 error: {}. L0 error: {}. L_-inf error: {}. Perceptual error: {}.'.format(n_samples, 
-        l1_error / n_samples, l2_error / n_samples, l0_error / n_samples, min_dist / n_samples, perceptual_error / n_samples))
+        print('{} images. L1 error: {}. L2 error: {}. prop_dist: {}. L0 error: {}. L_-inf error: {}.'.format(n_samples, 
+        l1_error / n_samples, l2_error / n_samples, float(n_dist) / n_samples, l0_error / n_samples, min_dist / n_samples))
 
     def test_attack_feats(self):
-        """Translate images using StarGAN trained on a single dataset."""
+        """Feature-level attacks"""
 
+        # Mapping of feature layers to indices
         layer_dict = {0: 2, 1: 5, 2: 8, 3: 9, 4: 10, 5: 11, 6: 12, 7: 13, 8: 14, 9: 17, 10: 20, 11: None}
 
-        for layer_num_orig in range(12):
+        for layer_num_orig in range(12):    # 11 layers + output
             # Load the trained generator.
             self.restore_model(self.test_iters)
             
@@ -688,75 +1034,135 @@ class Solver(object):
                 data_loader = self.rafd_loader
 
             # Initialize Metrics
-            l1_error = 0.0
-            l2_error = 0.0
-            min_dist = 0.0
-            l0_error = 0.0
-            perceptual_error = 0.0
-            n_samples = 0
-
-            # 11 layers + output
-            # layer_num_orig = 11
+            l1_error, l2_error, min_dist, l0_error = 0.0, 0.0, 0.0, 0.0
+            n_dist, n_samples = 0, 0
 
             print('Layer', layer_num_orig)
-            for i, (x_real, c_org) in enumerate(data_loader):
-                # Black image
-                black = np.zeros((1,3,256,256))
-                black = torch.FloatTensor(black).to(self.device)
 
+            for i, (x_real, c_org) in enumerate(data_loader):
                 # Prepare input images and target domain labels.
                 x_real = x_real.to(self.device)
                 c_trg_list = self.create_labels(c_org, self.c_dim, self.dataset, self.selected_attrs)
 
-                layer_num = layer_dict[layer_num_orig]
+                layer_num = layer_dict[layer_num_orig]  # get layer number
                 pgd_attack = attacks.LinfPGDAttack(model=self.G, device=self.device, feat=layer_num)
 
                 # Translate images.
                 x_fake_list = [x_real]
 
-                # if i == 0:
-                #     x_adv, perturb = pgd_attack.perturb(x_real, x_real, c_trg_list[0])
-
                 for c_trg in c_trg_list:
+                    with torch.no_grad():
+                        gen_noattack, gen_noattack_feats = self.G(x_real, c_trg)
+
                     # Attack
-                    x_adv, perturb = pgd_attack.perturb(x_real, black, c_trg)
-                    # x_adv = x_real + perturb
-                    # x_adv = self.blur_tensor(x_adv)
+                    if layer_num == None:
+                        x_adv, perturb = pgd_attack.perturb(x_real, gen_noattack, c_trg)
+                    else:
+                        x_adv, perturb = pgd_attack.perturb(x_real, gen_noattack_feats[layer_num], c_trg)
+                        
+                    x_adv = x_real + perturb
 
                     # Metrics
                     with torch.no_grad():
-                        # gen, preproc_x = self.G(x_adv, c_trg)
                         gen, gen_feats = self.G(x_adv, c_trg)
 
                         # Add to lists
-                        # x_fake_list.append(preproc_x)
                         x_fake_list.append(x_adv)
                         x_fake_list.append(gen)
-
-                        # No Attack
-                        # gen_noattack, _ = self.G(x_real, c_trg)
-                        gen_noattack, gen_noattack_feats = self.G(x_real, c_trg)
 
                         l1_error += F.l1_loss(gen, gen_noattack)
                         l2_error += F.mse_loss(gen, gen_noattack)
                         l0_error += (gen - gen_noattack).norm(0)
                         min_dist += (gen - gen_noattack).norm(float('-inf'))
+                        if F.mse_loss(gen, gen_noattack) > 0.05:
+                            n_dist += 1
                         n_samples += 1
 
                 # Save the translated images.
                 x_concat = torch.cat(x_fake_list, dim=3)
-                # result_path = os.path.join(self.result_dir, '{}-images.jpg'.format(i+1))
                 result_path = os.path.join(self.result_dir, '{}-{}-images.jpg'.format(layer_num_orig, i+1))
                 save_image(self.denorm(x_concat.data.cpu()), result_path, nrow=1, padding=0)
-                # print('Saved real and fake images into {}...'.format(result_path))
-                if i == 3:
+                if i == 49:
                     break
-                # if i == 199:
-                #     break
             
             # Print metrics
-            print('{} images. L1 error: {}. L2 error: {}. L0 error: {}. L_-inf error: {}. Perceptual error: {}.'.format(n_samples, 
-            l1_error / n_samples, l2_error / n_samples, l0_error / n_samples, min_dist / n_samples, perceptual_error / n_samples))
+            print('{} images. L1 error: {}. L2 error: {}. prop_dist: {}. L0 error: {}. L_-inf error: {}.'.format(n_samples, 
+            l1_error / n_samples, l2_error / n_samples, float(n_dist) / n_samples, l0_error / n_samples, min_dist / n_samples))
+
+    def test_attack_cond(self):
+        """Class conditional transfer"""
+        # Load the trained generator.
+        self.restore_model(self.test_iters)
+        
+        # Set data loader.
+        if self.dataset == 'CelebA':
+            data_loader = self.celeba_loader
+        elif self.dataset == 'RaFD':
+            data_loader = self.rafd_loader
+
+        # Initialize Metrics
+        l1_error, l2_error, min_dist, l0_error = 0.0, 0.0, 0.0, 0.0
+        n_dist, n_samples = 0, 0
+
+        for i, (x_real, c_org) in enumerate(data_loader):
+            # Prepare input images and target domain labels.
+            x_real = x_real.to(self.device)
+            c_trg_list = self.create_labels(c_org, self.c_dim, self.dataset, self.selected_attrs)
+
+            pgd_attack = attacks.LinfPGDAttack(model=self.G, device=self.device, feat=None)
+
+            # Translate images.
+            x_fake_list = [x_real]
+            
+            for idx, c_trg in enumerate(c_trg_list):
+                print(i, idx)
+                with torch.no_grad():
+                    x_real_mod = x_real
+                    gen_noattack, gen_noattack_feats = self.G(x_real_mod, c_trg)
+
+                # Transfer to different classes
+                if idx == 0:
+                    # Wrong Class
+                    x_adv, perturb = pgd_attack.perturb(x_real, gen_noattack, c_trg_list[0])
+
+                    # Joint Class Conditional
+                    # x_adv, perturb = pgd_attack.perturb_joint_class(x_real, gen_noattack, c_trg_list)
+
+                    # Iterative Class Conditional
+                    # x_adv, perturb = pgd_attack.perturb_iter_class(x_real, gen_noattack, c_trg_list)
+                    
+                # Correct Class
+                # x_adv, perturb = pgd_attack.perturb(x_real, gen_noattack, c_trg)
+
+                x_adv = x_real + perturb
+
+                # Metrics
+                with torch.no_grad():
+                    gen, _ = self.G(x_adv, c_trg)
+
+                    # Add to lists
+                    x_fake_list.append(x_adv)
+                    # x_fake_list.append(perturb)
+                    x_fake_list.append(gen)
+
+                    l1_error += F.l1_loss(gen, gen_noattack)
+                    l2_error += F.mse_loss(gen, gen_noattack)
+                    l0_error += (gen - gen_noattack).norm(0)
+                    min_dist += (gen - gen_noattack).norm(float('-inf'))
+                    if F.mse_loss(gen, gen_noattack) > 0.05:
+                        n_dist += 1
+                    n_samples += 1
+
+            # Save the translated images.
+            x_concat = torch.cat(x_fake_list, dim=3)
+            result_path = os.path.join(self.result_dir, '{}-images.jpg'.format(i+1))
+            save_image(self.denorm(x_concat.data.cpu()), result_path, nrow=1, padding=0)
+            if i == 49:
+                break
+        
+        # Print metrics
+        print('{} images. L1 error: {}. L2 error: {}. prop_dist: {}. L0 error: {}. L_-inf error: {}.'.format(n_samples, 
+        l1_error / n_samples, l2_error / n_samples, float(n_dist) / n_samples, l0_error / n_samples, min_dist / n_samples))
 
     def test_multi(self):
         """Translate images using StarGAN trained on multiple datasets."""
@@ -790,18 +1196,7 @@ class Solver(object):
                 save_image(self.denorm(x_concat.data.cpu()), result_path, nrow=1, padding=0)
                 print('Saved real and fake images into {}...'.format(result_path))
 
-    # def blur_tensor(self, tensor):
-    #     # PIL to numpy
-    #     img = self.denorm(tensor[0].data.cpu())
-    #     img = transforms.ToPILImage()(img)
-    #     img = img.filter(ImageFilter.GaussianBlur(radius=1.5))    
-    #     # img = img.filter(ImageFilter.BoxBlur(radius=2))
-    #     img = transforms.ToTensor()(img)
-    #     img = transforms.Normalize(mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5))(img)
-    #     img = torch.unsqueeze(img, 0).to(self.device)
-    #     return img
-
     def blur_tensor(self, tensor):
-        # preproc = smoothing.AverageSmoothing2D(channels=3, kernel_size=5).to(self.device)
-        preproc = smoothing.GaussianSmoothing2D(sigma=2, channels=3, kernel_size=11).to(self.device)
+        # preproc = smoothing.AverageSmoothing2D(channels=3, kernel_size=9).to(self.device)
+        preproc = smoothing.GaussianSmoothing2D(sigma=1.5, channels=3, kernel_size=11).to(self.device)
         return preproc(tensor)

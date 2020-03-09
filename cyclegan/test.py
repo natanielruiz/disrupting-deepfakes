@@ -61,29 +61,35 @@ if __name__ == '__main__':
     torch.manual_seed(0)
 
     # Initialize Metrics
-    l1_error, l2_error, min_dist, l0_error, perceptual_error = 0.0, 0.0, 0.0, 0.0, 0.0
-    n_samples = 0
+    l1_error, l2_error, min_dist, l0_error = 0.0, 0.0, 0.0, 0.0
+    n_dist, n_samples = 0, 0
 
     for i, data in enumerate(dataset):
         if i >= opt.num_test:  # only apply our model to opt.num_test images.
             break
         model.set_input(data)  # unpack data from data loader
+
+        # Get ground-truth output
         with torch.no_grad():
             model.forward_noattack()
-        if i == 0:
-            input_adv, perturb = model.attack()
-        # input_adv, perturb = model.attack()
+
+        # Attack
+        input_adv, perturb = model.attack(target=model.fake_noattack)
+
+        # Get output from adversarial sample
         with torch.no_grad():
             model.forward_attack(perturb)
             model.compute_visuals()
 
         # Compute metrics
-        l1, l2, l0, d = model.compute_errors()
+        l1, l2, l0, d, above = model.compute_errors()
         l1_error += l1
         l2_error += l2
         l0_error += l0
         min_dist += d
+        n_dist += above
         n_samples += 1
+        
         # model.test()           # run inference
         visuals = model.get_current_visuals()  # get image results
         img_path = model.get_image_paths()     # get image paths
@@ -92,8 +98,8 @@ if __name__ == '__main__':
         save_images(webpage, visuals, img_path, aspect_ratio=opt.aspect_ratio, width=opt.display_winsize)
         
     # Print metrics
-    print('{} images. L1 error: {}. L2 error: {}. L0 error: {}. L_-inf error: {}. Perceptual error: {}.'.format(n_samples, 
-    l1_error / n_samples, l2_error / n_samples, l0_error / n_samples, min_dist / n_samples, perceptual_error / n_samples))
+    print('{} images. L1 error: {}. L2 error: {}. prop_dist: {}. L0 error: {}. L_-inf error: {}.'.format(n_samples, 
+    l1_error / n_samples, l2_error / n_samples, float(n_dist) / n_samples, l0_error / n_samples, min_dist / n_samples))
 
     webpage.save()  # save the HTML
 

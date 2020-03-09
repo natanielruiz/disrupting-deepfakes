@@ -41,13 +41,24 @@ def main(config):
 
     if config.mode == 'train':
         if config.dataset in ['CelebA', 'RaFD']:
-            solver.train()
+            # Vanilla training
+            # solver.train()
+            # Generator adversarial training
+            # solver.train_adv_gen()
+            # G+D adversarial training
+            solver.train_adv_both()
         elif config.dataset in ['Both']:
             solver.train_multi()
     elif config.mode == 'test':
         if config.dataset in ['CelebA', 'RaFD']:
+            # Normal inference
             # solver.test()
+            # Attack inference
             solver.test_attack()
+            # Feature attack experiment
+            # solver.test_attack_feats()
+            # Conditional attack experiment
+            # solver.test_attack_cond()
         elif config.dataset in ['Both']:
             solver.test_multi()
 
@@ -71,7 +82,7 @@ if __name__ == '__main__':
     
     # Training configuration.
     parser.add_argument('--dataset', type=str, default='CelebA', choices=['CelebA', 'RaFD', 'Both'])
-    parser.add_argument('--batch_size', type=int, default=1, help='mini-batch size')
+    parser.add_argument('--batch_size', type=int, default=13, help='mini-batch size')
     parser.add_argument('--num_iters', type=int, default=200000, help='number of total iterations for training D')
     parser.add_argument('--num_iters_decay', type=int, default=100000, help='number of iterations for decaying lr')
     parser.add_argument('--g_lr', type=float, default=0.0001, help='learning rate for G')
@@ -103,7 +114,7 @@ if __name__ == '__main__':
     # Step size.
     parser.add_argument('--log_step', type=int, default=10)
     parser.add_argument('--sample_step', type=int, default=1000)
-    parser.add_argument('--model_save_step', type=int, default=10000)
+    parser.add_argument('--model_save_step', type=int, default=5000)
     parser.add_argument('--lr_update_step', type=int, default=1000)
 
     config = parser.parse_args()
