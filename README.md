@@ -4,7 +4,14 @@
 
 **[[Paper]](https://arxiv.org/abs/2003.01279)**
 
-Official PyTorch implementation of **[Disrupting Deepfakes](https://arxiv.org/abs/2003.01279)**. This repository contains code for adversarial attacks (disruptions) for (conditional) image translation networks. The StarGAN, GANimation, pix2pixHD and CycleGAN networks are included - and the attacks can be adapted to any image translation network. We include adaptations of FGSM, I-FGSM and PGD attacks.
+Official PyTorch implementation of **[Disrupting Deepfakes](https://arxiv.org/abs/2003.01279)**. This repository contains code for adversarial attacks (disruptions) for (conditional) image translation networks. The StarGAN, GANimation, pix2pixHD and CycleGAN networks are included - and the attacks can be adapted to any image translation network. We include adaptations of FGSM, I-FGSM and PGD attacks. We also include our class transferable attacks, adversarial training for image translation networks and spread-spectrum evasion of blur defenses.
+
+> **Disrupting Deepfakes: Adversarial Attacks Against Conditional Image Translation Networks and Facial Manipulation Systems**<br>
+> [Nataniel Ruiz](https://natanielruiz.github.io), [Sarah Adel Bargal](https://cs-people.bu.edu/sbargal/), [Stan Sclaroff](http://www.cs.bu.edu/~sclaroff/)    <br/>
+> Boston University <br/>
+> https://arxiv.org/abs/2003.01279 <br>
+>
+> **Abstract:** *Face modification systems using deep learning have become increasingly powerful and accessible. Given images of a person's face, such systems can generate new images of that same person under different expressions and poses. Some systems can also modify targeted attributes such as hair color or age. This type of manipulated images and video have been coined Deepfakes. In order to prevent a malicious user from generating modified images of a person without their consent we tackle the new problem of generating adversarial attacks against such image translation systems, which disrupt the resulting output image. We call this problem disrupting deepfakes. Most image translation architectures are generative models conditioned on an attribute (e.g. put a smile on this person's face). We are first to propose and successfully apply (1) class transferable adversarial attacks that generalize to different classes, which means that the attacker does not need to have knowledge about the conditioning class, and (2) adversarial training for generative adversarial networks (GANs) as a first step towards robust image translation networks. Finally, in gray-box scenarios, blurring can mount a successful defense against disruption. We present a spread-spectrum adversarial attack, which evades blur defenses.*
 
 ## Datasets
 TODO: Include download instructions for datasets.
