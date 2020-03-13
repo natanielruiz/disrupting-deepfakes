@@ -67,7 +67,7 @@ If you want to change the attack method being used, look into the attack.py scri
 
 In order to change attack types for GANimation you can modify lines 386-470 by commenting out the vanilla attack and uncommenting the attack you want to run. 
 
-## Attack Testing
+## GAN Adversarial Training
 In order to run G+D adversarial training on StarGAN run:
 ```
 # StarGAN Adversarial Training
