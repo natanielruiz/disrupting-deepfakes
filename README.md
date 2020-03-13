@@ -13,8 +13,32 @@ Official PyTorch implementation of **[Disrupting Deepfakes](https://arxiv.org/ab
 >
 > **Abstract:** *Face modification systems using deep learning have become increasingly powerful and accessible. Given images of a person's face, such systems can generate new images of that same person under different expressions and poses. Some systems can also modify targeted attributes such as hair color or age. This type of manipulated images and video have been coined Deepfakes. In order to prevent a malicious user from generating modified images of a person without their consent we tackle the new problem of generating adversarial attacks against such image translation systems, which disrupt the resulting output image. We call this problem disrupting deepfakes. Most image translation architectures are generative models conditioned on an attribute (e.g. put a smile on this person's face). We are first to propose and successfully apply (1) class transferable adversarial attacks that generalize to different classes, which means that the attacker does not need to have knowledge about the conditioning class, and (2) adversarial training for generative adversarial networks (GANs) as a first step towards robust image translation networks. Finally, in gray-box scenarios, blurring can mount a successful defense against disruption. We present a spread-spectrum adversarial attack, which evades blur defenses.*
 
-## Datasets
-TODO: Include download instructions for datasets.
+## Datasets and Models
+StarGAN Datasets
+```
+cd stargan
+bash download.sh celeba
+```
+StarGAN models
+```
+bash download.sh pretrained-celeba-256x256
+```
+
+GANimation Datasets
+```
+cd ganimation
+mkdir -p data/celeba/images_aligned/new_small
+```
+We use a third-party public pre-processed (cropped faces) version of the CelebA dataset that can be found [here](https://drive.google.com/open?id=1MijMc6QnjrNFopT1G43WQFeei9ddcaza). Please download datasets/celebA/imgs.tar from this Google Drive folder, extract imgs.tar and move these images into ganimation/celeba/images_aligned/new_small
+
+GANimation Models
+The pretrained models can be downloaded [here](https://www.dropbox.com/sh/108g19dk3gt1l7l/AAB4OJHHrMHlBDbNK8aFQVZSa?dl=0). They should be located at ganimation/models
+
+CycleGAN
+Follow instruction in the [CycleGAN official repository](https://github.com/junyanz/pytorch-CycleGAN-and-pix2pix) for downloading their models and data.
+
+pix2pixHD
+Follow instruction in the [pix2pixHD official repository](https://github.com/NVIDIA/pix2pixHD) for downloading their models and data.
 
 ## Attack Testing
 Here are bash commands for testing our vanilla attacks on each different architecture.
