@@ -1,5 +1,5 @@
 ## Disrupting Deepfakes: Adversarial Attacks on Conditional Image Translation Networks
-**[[Paper]](https://arxiv.org/abs/2003.01279)**
+**[[Paper]](https://arxiv.org/abs/2003.01279)** **[[Demo Video]](https://youtu.be/7_7r4Ng4-bE)**
 
 <p align="center"><img width="100%" src="imgs/demo.gif" /></p>
 <p align="center"><img width="100%" src="imgs/main_1.gif" /></p>
