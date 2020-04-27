@@ -4,7 +4,7 @@
 <p align="center"><img width="100%" src="imgs/demo.gif" /></p>
 <p align="center"><img width="100%" src="imgs/main_1.gif" /></p>
 
-Official PyTorch implementation of **[Disrupting Deepfakes](https://arxiv.org/abs/2003.01279)** (to be presented at the CVPR 2020 Workshop on Adversarial Machine Learning in Computer Vision). This repository contains code for adversarial attacks (disruptions) for (conditional) image translation networks. The StarGAN, GANimation, pix2pixHD and CycleGAN networks are included - and the attacks can be adapted to any image translation network. We include adaptations of FGSM, I-FGSM and PGD attacks. We also include our class transferable attacks, adversarial training for image translation networks and spread-spectrum evasion of blur defenses.
+Official PyTorch implementation of **[Disrupting Deepfakes](https://arxiv.org/abs/2003.01279)** (to be presented at the **CVPR 2020 Workshop on Adversarial Machine Learning in Computer Vision**). This repository contains code for adversarial attacks (disruptions) for (conditional) image translation networks. The StarGAN, GANimation, pix2pixHD and CycleGAN networks are included - and the attacks can be adapted to any image translation network. We include adaptations of FGSM, I-FGSM and PGD attacks. We also include our class transferable attacks, adversarial training for image translation networks and spread-spectrum evasion of blur defenses.
 
 > **Disrupting Deepfakes: Adversarial Attacks Against Conditional Image Translation Networks and Facial Manipulation Systems**<br>
 > [Nataniel Ruiz](https://natanielruiz.github.io), [Sarah Adel Bargal](https://cs-people.bu.edu/sbargal/), [Stan Sclaroff](http://www.cs.bu.edu/~sclaroff/)    <br/>
