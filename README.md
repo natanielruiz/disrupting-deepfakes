@@ -75,6 +75,8 @@ python main.py --mode train --dataset CelebA --image_size 256 --c_dim 5 --sample
 ```
 If you wish to run vanilla training or generator adversarial training, comment/uncomment the appropriate lines (l.44-49) in stargan/main.py
 
+The G+D adversarially trained model we used in the paper can be downloaded [here](https://drive.google.com/open?id=1xMM7q4w3lczO6Iskj8CWwmNWHBer9RBP).
+
 ## Image Translation Network Implementations
 We use code from [StarGAN](https://github.com/yunjey/stargan), [GANimation](https://github.com/vipermu/ganimation), [pix2pixHD](https://github.com/NVIDIA/pix2pixHD), [CycleGAN](https://github.com/junyanz/pytorch-CycleGAN-and-pix2pix) and [advertorch](https://github.com/BorealisAI/advertorch). These are all great repositories and we encourage you to check them out and cite them in your work.
 
